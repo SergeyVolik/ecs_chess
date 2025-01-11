@@ -14,7 +14,7 @@ public class ChessSocketAuthoring : MonoBehaviour
         public override void Bake(ChessSocketAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent<ChessSocketT>(entity, new ChessSocketT
+            AddComponent<ChessSocketC>(entity, new ChessSocketC
             {
 
             });

@@ -18,7 +18,7 @@ public partial struct SpawnChessPiecesSystem : ISystem
 
         NativeList<ChessBoardSockets> sockets = new NativeList<ChessBoardSockets>(Allocator.Temp);
 
-        foreach (var (boardAspect, boardE) in SystemAPI.Query<ChestBoardAspect>().WithEntityAccess().WithNone<ChessBoardCreatedT>())
+        foreach (var (boardAspect, boardE) in SystemAPI.Query<ChessBoardAspect>().WithEntityAccess().WithNone<ChessBoardCreatedT>())
         {
             var whitePrefabs = boardAspect.GetWhitePrefabs();
             var blackPrefabs = boardAspect.GetBlackPrefabs();
@@ -48,9 +48,9 @@ public partial struct SpawnChessPiecesSystem : ISystem
     {
         foreach (var item in sockets)
         {
-            var socketTrans = SystemAPI.GetComponent<LocalTransform>(item.socketEntity);
+            var socketTrans = SystemAPI.GetComponent<LocalTransform>(item.socketE);
             var instance = buffer.Instantiate(prefab);
-            buffer.AddComponent<ChessSocketPieceC>(item.socketEntity, new ChessSocketPieceC
+            buffer.AddComponent<ChessSocketPieceC>(item.socketE, new ChessSocketPieceC
             {
                 pieceE = instance
             });

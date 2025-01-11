@@ -46,8 +46,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   highlightSelected: {fileID: 2272290411110491277, guid: 71f9d97f4fb9d2a4eb0dfcd92452aed4, type: 3}
-  highlightMovePos: {fileID: 8315071641444840386, guid: 796da2bf40c995d459d0671c52da3f09, type: 3}
-  highlightEnemy: {fileID: 8076048682523654948, guid: 2c1293a9478ae8a4983a2bf88e1088f1, type: 3}
+  highlightMovePos: {fileID: 5900226580094256438, guid: b4016c17712798e43bb5300982e2f712, type: 3}
+  highlightEnemy: {fileID: 5900226580094256438, guid: d7baf706d0e845847a98d258e01cad7f, type: 3}
 --- !u!65 &2273088295878434502
 BoxCollider:
   m_ObjectHideFlags: 0

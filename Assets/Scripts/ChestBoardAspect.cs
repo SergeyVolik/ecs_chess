@@ -1,14 +1,14 @@
 using Unity.Collections;
 using Unity.Entities;
 
-readonly partial struct ChestBoardAspect : IAspect
+readonly partial struct ChessBoardAspect : IAspect
 {
     public readonly Entity Self;
     readonly DynamicBuffer<ChessBoardSockets> boardSocketsB;
     public readonly RefRO<ChessBoardC> boardC;
 
-    const int GRID_X = 8;
-    const int GRID_Y = 8;
+    public const int GRID_X = 8;
+    public const int GRID_Y = 8;
 
     public ChessPiecesPrefabs GetWhitePrefabs() => boardC.ValueRO.white;
     public ChessPiecesPrefabs GetBlackPrefabs() => boardC.ValueRO.black;
@@ -17,6 +17,11 @@ readonly partial struct ChestBoardAspect : IAspect
     public ChessBoardSockets GetSocket(int x, int y)
     {
         return boardSocketsB[y * GRID_Y + x];
+    }
+
+    public ChessBoardSockets GetSocket(int index)
+    {
+        return boardSocketsB[index];
     }
 
     private void GetRow(NativeList<ChessBoardSockets> sockets, int rowIndex)

@@ -28,7 +28,6 @@ readonly partial struct ChessSocketHighlightAspect : IAspect
             entity = e
         });
         ecb.SetComponent<LocalTransform>(e, transform.ValueRO);
-        ecb.SetComponent<LocalToWorld>(e, ltw.ValueRO);
     }
 
     public void ShowEnemy(EntityCommandBuffer ecb)

@@ -26,12 +26,12 @@ public struct ChessBoardC : IComponentData
 [InternalBufferCapacity(64)]
 public struct ChessBoardSockets : IBufferElementData
 {
-    public Entity socketEntity;
+    public Entity socketE;
 }
 
 public struct ChessGameStartedT : IComponentData
 {
-
+    public PieceColor turnColor;
 }
 
 public struct ChessBoardCreatedT : IComponentData
@@ -43,17 +43,20 @@ public struct ChessPieceC : IComponentData
 {
     public ChessType chessType;
     public PieceColor color;
+    public bool movedOnce;
 }
 
-public struct ChessPieceSelectedT : IComponentData
+public struct ChessSocketSelectedT : IComponentData
 {
 
 }
 
-public struct ChessSocketT : IComponentData
+public struct ChessSocketC : IComponentData
 {
-
+    public int x;
+    public int y;
 }
+
 public struct ChessSocketInitedT : IComponentData
 {
 

@@ -26,6 +26,12 @@ public partial struct SpawnSocketsSystem : ISystem
                     var socketInstance = buffer.Instantiate(bC.ValueRO.socketPrefab);
                     float3 spawnPos = bC.ValueRO.spawnGridOffset + new float3(x * bC.ValueRO.offsetBetweenSockets.x, 0, z * bC.ValueRO.offsetBetweenSockets.z);
                     buffer.SetComponent<LocalTransform>(socketInstance, LocalTransform.FromPosition(spawnPos));
+
+                    buffer.SetComponent<ChessSocketC>(socketInstance, new ChessSocketC
+                    {
+                        x = x,
+                        y = z
+                    });
                     buffer.AddComponent<Parent>(socketInstance, new Parent
                     {
                         Value = e
@@ -33,7 +39,7 @@ public partial struct SpawnSocketsSystem : ISystem
 
                     sockets.Add(new ChessBoardSockets
                     {
-                        socketEntity = socketInstance,
+                        socketE = socketInstance,
                     });
                 }
             }
