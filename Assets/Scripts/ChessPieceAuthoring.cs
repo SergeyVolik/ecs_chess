@@ -1,23 +1,37 @@
 using Unity.Entities;
 using UnityEngine;
 
+public enum ChessType
+{
+    Pawn,
+    Bishop,
+    Rook,
+    Knight,
+    Queen,
+    King
+}
+
+public enum PieceColor
+{
+    White,
+    Black
+}
+
 public class ChessPieceAuthoring : MonoBehaviour
 {
-    public class Baker : Baker<ChessSocketAuthoring>
+    public ChessType chessType;
+    public PieceColor color;
+
+    public class Baker : Baker<ChessPieceAuthoring>
     {
-        public override void Bake(ChessSocketAuthoring authoring)
+        public override void Bake(ChessPieceAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent<ChessPiece>(entity, new ChessPiece
+            AddComponent<ChessPieceC>(entity, new ChessPieceC
             {
-
+                chessType = authoring.chessType,
+                color = authoring.color,
             });
         }
     }
-}
-
-public struct ChessPiece : IComponentData
-{
-    public int x;
-    public int y;
 }

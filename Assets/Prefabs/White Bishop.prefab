@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 4656461099900482728}
   - component: {fileID: 6946557673255405683}
   - component: {fileID: 474443177923096704}
-  - component: {fileID: 2847332907853357602}
   - component: {fileID: 802239345818547003}
   m_Layer: 0
   m_Name: White Bishop
@@ -85,28 +84,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!64 &2847332907853357602
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5698404372195785650}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 4300000, guid: 1e1130c2d0732f44eb82b057a9dcf58b, type: 3}
 --- !u!114 &802239345818547003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -119,3 +96,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebb17889d35feb049a2983ea3838cfee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  chessType: 1
+  color: 0

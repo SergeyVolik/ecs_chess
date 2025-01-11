@@ -51,29 +51,3 @@ public class ChessBoardAuthoring : MonoBehaviour
         }
     }
 }
-public struct ChessPiecesPrefabs
-{
-    public Entity bishop;
-    public Entity king;
-    public Entity knight;
-    public Entity pawn;
-    public Entity queen;
-    public Entity rook;
-}
-
-public struct ChessBoardC : IComponentData
-{
-    public float3 spawnGridOffset;
-    public float3 offsetBetweenSockets;
-    public Entity socketPrefab;
-
-    public ChessPiecesPrefabs black;
-    public ChessPiecesPrefabs white;
-
-}
-
-[InternalBufferCapacity(64)]
-public struct ChessBoardSockets : IBufferElementData
-{
-    public Entity socketEntity;
-}
