@@ -172,19 +172,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4343443498181358978, guid: dc73c96b992e257479170430b7fd6397, type: 3}
       propertyPath: spawnGridOffset.x
-      value: -5.3
+      value: -5.25
       objectReference: {fileID: 0}
     - target: {fileID: 4343443498181358978, guid: dc73c96b992e257479170430b7fd6397, type: 3}
       propertyPath: spawnGridOffset.z
-      value: -5.27
-      objectReference: {fileID: 0}
-    - target: {fileID: 4343443498181358978, guid: dc73c96b992e257479170430b7fd6397, type: 3}
-      propertyPath: offsetBetweenSockets.x
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 4343443498181358978, guid: dc73c96b992e257479170430b7fd6397, type: 3}
-      propertyPath: offsetBetweenSockets.z
-      value: 1.5
+      value: -5.25
       objectReference: {fileID: 0}
     - target: {fileID: 8772567954129559463, guid: dc73c96b992e257479170430b7fd6397, type: 3}
       propertyPath: m_Name

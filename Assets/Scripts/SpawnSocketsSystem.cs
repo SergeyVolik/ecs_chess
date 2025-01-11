@@ -13,16 +13,17 @@ public partial struct SpawnSocketsSystem : ISystem
     {
         EntityCommandBuffer buffer = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
-        foreach (var (bC, e) in SystemAPI.Query<ChessBoard>().WithEntityAccess().WithNone<ChessBoardSockets>())
+        foreach (var (bC, e) in SystemAPI.Query<RefRO<ChessBoardC>>().WithEntityAccess().WithNone<ChessBoardSockets>())
         {
             var sockets = buffer.AddBuffer<ChessBoardSockets>(e);
-
-            for (int x = 0; x < 8; x++)
+            buffer.AddComponent<StartGameT>(e);
+            for (int z = 0; z < 8; z++)
             {
-                for (int z = 0; z < 8; z++)
+                for (int x = 0; x < 8; x++)
                 {
-                    var socketInstance = buffer.Instantiate(bC.socketPrefab);
-                    buffer.SetComponent<LocalTransform>(socketInstance, LocalTransform.FromPosition(bC.spawnGridOffset + new float3(x * bC.offsetBetweenSockets.x, 0, z * bC.offsetBetweenSockets.z)));
+                    var socketInstance = buffer.Instantiate(bC.ValueRO.socketPrefab);
+                    float3 spawnPos = bC.ValueRO.spawnGridOffset + new float3(x * bC.ValueRO.offsetBetweenSockets.x, 0, z * bC.ValueRO.offsetBetweenSockets.z);
+                    buffer.SetComponent<LocalTransform>(socketInstance, LocalTransform.FromPosition(spawnPos));
                     sockets.Add(new ChessBoardSockets
                     {
                         socketEntity = socketInstance,
