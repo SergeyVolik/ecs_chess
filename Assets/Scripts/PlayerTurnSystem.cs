@@ -63,9 +63,41 @@ public partial class PlayerTurnSystem : SystemBase
                 var pieces = SystemAPI.GetComponent<ChessSocketPieceC>(m_LastSelected);
                 ecb.AddComponent<ChessSocketPieceC>(raycastedSocketE, pieces);
                 var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieces.pieceE);
-                SystemAPI.GetComponentRW<ChessPieceC>(pieces.pieceE).ValueRW.movedOnce = true;
+                var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieces.pieceE);
+                pieceData.ValueRW.movedOnce = true;
                 ltw.ValueRW.Position = SystemAPI.GetComponent<LocalTransform>(raycastedSocketE).Position;
                 ecb.RemoveComponent<ChessSocketPieceC>(m_LastSelected);
+
+
+                if (pieceData.ValueRO.chessType == ChessType.Pawn)
+                {
+                    var boardE = SystemAPI.GetSingletonEntity<ChessBoardC>();
+                    var boardAspect = SystemAPI.GetAspect<ChessBoardAspect>(boardE);
+
+                    var color = pieceData.ValueRO.color;
+
+                    if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(raycastedSocketE)))
+                    {
+                        var queenPrefab = color == PieceColor.White ?
+                            boardAspect.GetWhitePrefabs().queen :
+                            boardAspect.GetBlackPrefabs().queen;
+
+                        ecb.DestroyEntity(pieces.pieceE);
+                        var instace = ecb.Instantiate(queenPrefab);
+                        ecb.SetComponent<ChessPieceC>(instace, new ChessPieceC
+                        {
+                            chessType = ChessType.Queen,
+                            color = color,
+                            movedOnce = true
+                        });
+                        ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(raycastedSocketE));
+                        ecb.AddComponent<ChessSocketPieceC>(raycastedSocketE, new ChessSocketPieceC
+                        {
+                            pieceE = instace
+                        });
+                    }
+                }
+
                 break;
             }
         }

@@ -24,6 +24,23 @@ readonly partial struct ChessBoardAspect : IAspect
         return boardSocketsB[index];
     }
 
+    public int IndexOf(Entity socket)
+    {
+        for (int i = 0; i < boardSocketsB.Length; i++)
+        {
+            if (boardSocketsB[i].socketE == socket)
+                return i;
+        }
+
+        return -1;
+    }
+
+    public bool IsBoardEnd(PieceColor color, int index)
+    {
+        return color == PieceColor.Black && index >= 0 && index < GRID_Y 
+            || color == PieceColor.White && index >= GRID_Y * GRID_X - GRID_Y && index < GRID_Y * GRID_X;
+    }
+
     private void GetRow(NativeList<ChessBoardSockets> sockets, int rowIndex)
     {
         sockets.Clear();
