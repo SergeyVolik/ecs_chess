@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 readonly partial struct ChessBoardPersistentAspect : IAspect
 {
@@ -11,23 +12,46 @@ readonly partial struct ChessBoardPersistentAspect : IAspect
 readonly partial struct ChessBoardInstanceAspect : IAspect
 {
     public readonly Entity Self;
-    readonly DynamicBuffer<ChessBoardSockets> boardSocketsB;
+    readonly DynamicBuffer<ChessBoardInstanceSockets> boardSocketsB;
+    public readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
+    public readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;
+
+    public readonly RefRW<ChessBoardInstanceT> instanceC;
     public readonly DynamicBuffer<LinkedEntityGroup> liked;
 
     public const int GRID_X = 8;
     public const int GRID_Y = 8;
 
 
-    public ChessBoardSockets GetSocket(int x, int y)
+    public ChessBoardInstanceSockets GetSocket(int x, int y)
     {
         return boardSocketsB[y * GRID_Y + x];
     }
 
-    public ChessBoardSockets GetSocket(int index)
+    public ChessBoardInstanceSockets GetSocket(int index)
     {
         return boardSocketsB[index];
     }
 
+    public bool SocketPosition(Entity socket, out int2 xy)
+    {
+
+        xy.x = -1;
+        xy.y = -1;
+
+        for (int i = 0; i < boardSocketsB.Length; i++)
+        {
+            if (boardSocketsB[i].socketE == socket)
+            {
+                xy.x = i % GRID_X;
+                xy.y = i / GRID_X;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
     public int IndexOf(Entity socket)
     {
         for (int i = 0; i < boardSocketsB.Length; i++)
@@ -45,7 +69,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
             || color == PieceColor.White && index >= GRID_Y * GRID_X - GRID_Y && index < GRID_Y * GRID_X;
     }
 
-    private void GetRow(NativeList<ChessBoardSockets> sockets, int rowIndex)
+    private void GetRow(NativeList<ChessBoardInstanceSockets> sockets, int rowIndex)
     {
         sockets.Clear();
         sockets.Add(GetSocket(0, rowIndex));
@@ -58,19 +82,19 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         sockets.Add(GetSocket(7, rowIndex));
     }
 
-    public NativeList<ChessBoardSockets> GetPawnSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetPawnSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         GetRow(sockets, 1);
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetPawnSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetPawnSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         GetRow(sockets, GRID_Y - 2);
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetRookSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetRookSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(0, 0));
@@ -78,7 +102,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetRookSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetRookSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(0, GRID_Y - 1));
@@ -86,7 +110,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetKnightSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetKnightSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(1, GRID_Y - 1));
@@ -94,7 +118,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetKnightSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetKnightSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(1, 0));
@@ -102,7 +126,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetBishopSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetBishopSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(2, GRID_Y - 1));
@@ -110,7 +134,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetBishopSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetBishopSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetSocket(2, 0));
@@ -118,36 +142,36 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetKingSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetKingSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetKingSocketWhite());
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetKingSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetKingSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetKingSocketBlack());
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetQueenSocketsWhite(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetQueenSocketsWhite(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetQueenSocketWhite());
         return sockets;
     }
 
-    public NativeList<ChessBoardSockets> GetQueenSocketsBlack(NativeList<ChessBoardSockets> sockets)
+    public NativeList<ChessBoardInstanceSockets> GetQueenSocketsBlack(NativeList<ChessBoardInstanceSockets> sockets)
     {
         sockets.Clear();
         sockets.Add(GetQueenSocketBlack());
         return sockets;
     }
-    public ChessBoardSockets GetQueenSocketWhite() => GetSocket(4, 0);
-    public ChessBoardSockets GetQueenSocketBlack() => GetSocket(4, GRID_Y - 1);
+    public ChessBoardInstanceSockets GetQueenSocketWhite() => GetSocket(4, 0);
+    public ChessBoardInstanceSockets GetQueenSocketBlack() => GetSocket(4, GRID_Y - 1);
 
-    public ChessBoardSockets GetKingSocketWhite() => GetSocket(3, 0);
-    public ChessBoardSockets GetKingSocketBlack() => GetSocket(3, GRID_Y - 1);
+    public ChessBoardInstanceSockets GetKingSocketWhite() => GetSocket(3, 0);
+    public ChessBoardInstanceSockets GetKingSocketBlack() => GetSocket(3, GRID_Y - 1);
 }

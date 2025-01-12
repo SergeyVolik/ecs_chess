@@ -11,7 +11,7 @@ public class MenuUI : BaseGameUI
         startButton.onClick.AddListener(() =>
         {
             var e = World.DefaultGameObjectInjectionWorld.EntityManager.CreateEntity();
-            World.DefaultGameObjectInjectionWorld.EntityManager.AddComponent<ChessStartGameT>(e);
+            World.DefaultGameObjectInjectionWorld.EntityManager.AddComponent<ChessGameStartT>(e);
             gameObject.SetActive(false);
             gameUI.Show();
         });

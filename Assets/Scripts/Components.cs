@@ -1,6 +1,5 @@
 using Unity.Entities;
 using Unity.Mathematics;
-using UnityEngine;
 
 public struct ChessPiecesPrefabs
 {
@@ -22,43 +21,33 @@ public struct ChessBoardPersistentC : IComponentData
     public ChessPiecesPrefabs blackPiecesPrefabs;
     public ChessPiecesPrefabs whitePiecesPrefabs;
 }
+
 public struct ChessBoardInstanceT : IComponentData
-{
-
-}
-    [InternalBufferCapacity(64)]
-public struct ChessBoardSockets : IBufferElementData
-{
-    public Entity socketE;
-}
-
-public struct ChessStartGameT : IComponentData
-{
-    
-}
-
-public struct ChessBoardTurnC : IComponentData
-{
-    public PieceColor turnColor;
-}
-public struct ChessGameWhitePiecesBuffer : IBufferElementData
-{
-    public Entity pieceE;
-}
-
-public struct ChessGamePiecesC : IComponentData
 {
     public Entity whiteKingE;
     public Entity blackKingE;
 }
 
-public struct ChessGameBlackPiecesBuffer : IBufferElementData
+[InternalBufferCapacity(64)]
+public struct ChessBoardInstanceSockets : IBufferElementData
+{
+    public Entity socketE;
+}
+
+public struct ChessGameStartT : IComponentData { }
+
+public struct ChessBoardTurnC : IComponentData
+{
+    public PieceColor turnColor;
+}
+public struct ChessBoardWhitePiecesBuffer : IBufferElementData
 {
     public Entity pieceE;
 }
-public struct ChessBoardInstanceCreatedT : IComponentData
-{
 
+public struct ChessBoardBlackPiecesBuffer : IBufferElementData
+{
+    public Entity pieceE;
 }
 
 public struct ChessPieceC : IComponentData
@@ -88,6 +77,7 @@ public struct ChessSocketInitedT : IComponentData
 {
 
 }
+
 public struct ChessSocketHighlightInstanceC : IComponentData
 {
     public Entity entity;
@@ -99,7 +89,7 @@ public struct ChessSocketHighlightInstanceC : IComponentData
     public Entity highlightEnemyPrefab;
 }
 
-public struct ChessSocketPieceC : IComponentData
+public struct ChessSocketPieceLinkC : IComponentData
 {
     public Entity pieceE;
 }

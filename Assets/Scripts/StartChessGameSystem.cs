@@ -8,7 +8,7 @@ public partial struct StartChessGameSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<ChessStartGameT>();
+        state.RequireForUpdate<ChessGameStartT>();
     }
 
     public void OnUpdate(ref SystemState state)
@@ -16,7 +16,7 @@ public partial struct StartChessGameSystem : ISystem
         RemovePrevBoard(ref state);
         SpawnNewBoard(ref state);
 
-        state.EntityManager.DestroyEntity(SystemAPI.QueryBuilder().WithAll<ChessStartGameT>().Build());
+        state.EntityManager.DestroyEntity(SystemAPI.QueryBuilder().WithAll<ChessGameStartT>().Build());
     }
 
     public void SpawnNewBoard(ref SystemState state)
@@ -25,15 +25,18 @@ public partial struct StartChessGameSystem : ISystem
         var boardE = state.EntityManager.Instantiate(persistentData.chessBoardPrefab);
         state.EntityManager.AddComponent<ChessBoardInstanceT>(boardE);
         state.EntityManager.AddComponent<ChessBoardTurnC>(boardE);
+        state.EntityManager.AddBuffer<ChessBoardBlackPiecesBuffer>(boardE);
+        state.EntityManager.AddBuffer<ChessBoardWhitePiecesBuffer>(boardE);
 
         SetupSokets(ref state, boardE, in persistentData);
         SpawnPieces(ref state, boardE, in persistentData);
     }
+
     public void RemovePrevBoard(ref SystemState state)
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-        foreach (var (c,e) in SystemAPI.Query<ChessBoardInstanceT>().WithEntityAccess())
+        foreach (var (c, e) in SystemAPI.Query<ChessBoardInstanceT>().WithEntityAccess())
         {
             ecb.DestroyEntity(e);
         }
@@ -45,7 +48,7 @@ public partial struct StartChessGameSystem : ISystem
     {
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
 
-        var sockets = ecb.AddBuffer<ChessBoardSockets>(boardE);
+        var sockets = ecb.AddBuffer<ChessBoardInstanceSockets>(boardE);
 
         for (int z = 0; z < 8; z++)
         {
@@ -66,13 +69,14 @@ public partial struct StartChessGameSystem : ISystem
                     Value = boardE
                 });
 
-                sockets.Add(new ChessBoardSockets
+                sockets.Add(new ChessBoardInstanceSockets
                 {
                     socketE = socketInstance,
                 });
 
-                ecb.AppendToBuffer<LinkedEntityGroup>(boardE, new LinkedEntityGroup { 
-                     Value = socketInstance,
+                ecb.AppendToBuffer<LinkedEntityGroup>(boardE, new LinkedEntityGroup
+                {
+                    Value = socketInstance,
                 });
             }
         }
@@ -82,56 +86,80 @@ public partial struct StartChessGameSystem : ISystem
 
     public void SpawnPieces(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
     {
-
-        EntityCommandBuffer buffer = new EntityCommandBuffer(Allocator.Temp);
-        NativeList<ChessBoardSockets> sockets = new NativeList<ChessBoardSockets>(Allocator.Temp);
+        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
+        NativeList<ChessBoardInstanceSockets> sockets = new NativeList<ChessBoardInstanceSockets>(Allocator.Temp);
 
         var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
 
         var whitePrefabs = bC.whitePiecesPrefabs;
         var blackPrefabs = bC.blackPiecesPrefabs;
 
-        buffer.AddComponent<ChessBoardInstanceCreatedT>(boardE);
+       
+        //SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);     
+        //SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);    
+        //SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
+        //SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
+        SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), ecb, blackPrefabs.king, boardE);
 
-        SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), buffer, whitePrefabs.pawn, boardE);
-        SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), buffer, blackPrefabs.pawn, boardE);
+        //SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), ecb, whitePrefabs.rook, boardE);
+        //SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
+        //SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
+        //SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
+        SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), ecb, whitePrefabs.king, boardE);
+     
 
-        SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), buffer, whitePrefabs.rook, boardE);
-        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), buffer, blackPrefabs.rook, boardE);
+        ecb.Playback(state.EntityManager);
 
-        SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), buffer, whitePrefabs.knight, boardE);
-        SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), buffer, blackPrefabs.knight, boardE);
+        var black = SystemAPI.GetBuffer<ChessBoardBlackPiecesBuffer>(boardE);
+        var white = SystemAPI.GetBuffer<ChessBoardWhitePiecesBuffer>(boardE);
 
-        SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), buffer, whitePrefabs.bishop, boardE);
-        SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), buffer, blackPrefabs.bishop, boardE);
-
-        SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), buffer, whitePrefabs.king, boardE);
-        SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), buffer, blackPrefabs.king, boardE);
-
-        SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), buffer, whitePrefabs.queen, boardE);
-        SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), buffer, blackPrefabs.queen, boardE);
-
-        buffer.Playback(state.EntityManager);
+        var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceT>(boardE);
+        foreach (var (c, e) in SystemAPI.Query<ChessPieceC>().WithEntityAccess())
+        {
+            if (c.color == PieceColor.White)
+            {
+                white.Add(new ChessBoardWhitePiecesBuffer { pieceE = e });
+                if (c.chessType == ChessType.King)
+                {
+                    bInstance.ValueRW.whiteKingE = e;
+                }
+            }
+            else
+            {
+                black.Add(new ChessBoardBlackPiecesBuffer { pieceE = e });
+                if (c.chessType == ChessType.King)
+                {
+                    bInstance.ValueRW.blackKingE = e;
+                }
+            }
+        }
     }
 
-    private void SetupPieces(ref SystemState state, NativeList<ChessBoardSockets> sockets, EntityCommandBuffer ecb, Entity prefab, Entity boardE)
+    private void SetupPieces(ref SystemState state, NativeList<ChessBoardInstanceSockets> sockets, EntityCommandBuffer ecb, Entity prefab, Entity boardE)
     {
         foreach (var item in sockets)
         {
             var socketTrans = SystemAPI.GetComponent<LocalTransform>(item.socketE);
             var instance = ecb.Instantiate(prefab);
-            ecb.AddComponent<ChessSocketPieceC>(item.socketE, new ChessSocketPieceC
+
+            ecb.AddComponent<ChessSocketPieceLinkC>(item.socketE, new ChessSocketPieceLinkC
             {
                 pieceE = instance
             });
+
             ecb.AddComponent<Parent>(instance, new Parent
             {
                 Value = boardE
             });
+
             ecb.AppendToBuffer<LinkedEntityGroup>(boardE, new LinkedEntityGroup
             {
                 Value = instance,
             });
+
+            ecb.AddComponent<ChessSocketC>(instance, SystemAPI.GetComponent<ChessSocketC>(item.socketE));
             ecb.SetComponent<LocalTransform>(instance, LocalTransform.FromPositionRotation(socketTrans.Position, quaternion.identity));
         }
     }
