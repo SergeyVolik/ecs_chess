@@ -13,7 +13,7 @@ public partial class SelectPieceSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        RequireForUpdate<ChessGameStartedT>();
+        RequireForUpdate<ChessGameStateT>();
         m_Camera = Camera.main;
     }
 

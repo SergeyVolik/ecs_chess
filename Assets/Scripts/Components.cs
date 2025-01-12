@@ -29,7 +29,7 @@ public struct ChessBoardSockets : IBufferElementData
     public Entity socketE;
 }
 
-public struct ChessGameStartedT : IComponentData
+public struct ChessGameStateT : IComponentData
 {
     public PieceColor turnColor;
 }

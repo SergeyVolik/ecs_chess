@@ -142,8 +142,8 @@ readonly partial struct ChessBoardAspect : IAspect
         return sockets;
     }
     public ChessBoardSockets GetQueenSocketWhite() => GetSocket(4, 0);
-    public ChessBoardSockets GetQueenSocketBlack() => GetSocket(3, GRID_Y - 1);
+    public ChessBoardSockets GetQueenSocketBlack() => GetSocket(4, GRID_Y - 1);
 
     public ChessBoardSockets GetKingSocketWhite() => GetSocket(3, 0);
-    public ChessBoardSockets GetKingSocketBlack() => GetSocket(4, GRID_Y - 1);
+    public ChessBoardSockets GetKingSocketBlack() => GetSocket(3, GRID_Y - 1);
 }

@@ -9,7 +9,7 @@ public partial struct SpawnChessPiecesSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<ChessGameStartedT>();
+        state.RequireForUpdate<ChessGameStateT>();
     }
 
     public void OnUpdate(ref SystemState state)

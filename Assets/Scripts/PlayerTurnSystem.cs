@@ -19,7 +19,7 @@ public partial class PlayerTurnSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        RequireForUpdate<ChessGameStartedT>();
+        RequireForUpdate<ChessGameStateT>();
         RequireForUpdate<ChessBoardC>();
 
         m_TurnPositions = new NativeList<ChessTurnPositions>(Allocator.Persistent);
@@ -98,6 +98,8 @@ public partial class PlayerTurnSystem : SystemBase
                     }
                 }
 
+                var chessGameState = SystemAPI.GetSingletonRW<ChessGameStateT>();
+                chessGameState.ValueRW.turnColor = PieceColor.White == chessGameState.ValueRW.turnColor ? PieceColor.Black : PieceColor.White;
                 break;
             }
         }
@@ -114,7 +116,7 @@ public partial class PlayerTurnSystem : SystemBase
 
         if (Input.GetMouseButtonDown(0))
         {
-            var state = SystemAPI.GetSingleton<ChessGameStartedT>();
+            var state = SystemAPI.GetSingleton<ChessGameStateT>();
 
             var ray = m_Camera.ScreenPointToRay(Input.mousePosition);
             var raycastedSocketE = Raycast(ray.origin, ray.origin + ray.direction * 200f);
@@ -135,7 +137,6 @@ public partial class PlayerTurnSystem : SystemBase
                 }
             }
         }
-
     }
 
     void ClearSelection(EntityCommandBuffer ecb)

@@ -9,10 +9,10 @@ public partial struct SpawnSocketsSystem : ISystem
     {
         EntityCommandBuffer buffer = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
-        if (!SystemAPI.HasSingleton<ChessGameStartedT>())
+        if (!SystemAPI.HasSingleton<ChessGameStateT>())
         {
             var e1 = buffer.CreateEntity();
-            buffer.AddComponent<ChessGameStartedT>(e1);
+            buffer.AddComponent<ChessGameStateT>(e1);
         }
 
         foreach (var (bC, e) in SystemAPI.Query<RefRO<ChessBoardC>>().WithEntityAccess().WithNone<ChessBoardSockets>())
