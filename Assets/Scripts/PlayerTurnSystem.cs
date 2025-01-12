@@ -141,7 +141,7 @@ public partial class PlayerTurnSystem : SystemBase
         var piece = SystemAPI.GetComponent<ChessSocketPieceC>(selectedE);
         var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(piece.pieceE);
 
-
+        Debug.Log(pieceData.ValueRO.ToString());
         switch (pieceData.ValueRO.chessType)
         {
             case ChessType.Pawn:
@@ -178,10 +178,24 @@ public partial class PlayerTurnSystem : SystemBase
             case ChessType.Rook:
                 break;
             case ChessType.Knight:
+
+
                 break;
             case ChessType.Queen:
                 break;
             case ChessType.King:
+                Debug.Log("King Selected");
+                x = socketC.x;
+                y = socketC.y;
+
+                TryAddTurn(x + 1, y, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x - 1, y, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x + 1, y + 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x - 1, y - 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x, y + 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x, y - 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x - 1, y + 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(x + 1, y - 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
                 break;
             default:
                 break;

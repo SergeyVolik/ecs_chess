@@ -44,6 +44,11 @@ public struct ChessPieceC : IComponentData
     public ChessType chessType;
     public PieceColor color;
     public bool movedOnce;
+
+    public override string ToString()
+    {
+        return $"chessType: {chessType}";
+    }
 }
 
 public struct ChessSocketSelectedT : IComponentData
