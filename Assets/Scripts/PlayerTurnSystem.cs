@@ -27,7 +27,7 @@ public partial class PlayerTurnSystem : SystemBase
     }
 
     protected override void OnDestroy()
-    {     
+    {
         base.OnDestroy();
         m_TurnPositions.Dispose();
     }
@@ -46,7 +46,7 @@ public partial class PlayerTurnSystem : SystemBase
     }
 
     bool TryMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
-    {     
+    {
         bool result = false;
 
         foreach (var item in m_TurnPositions)
@@ -70,7 +70,7 @@ public partial class PlayerTurnSystem : SystemBase
             }
         }
 
-        if(result)
+        if (result)
             ClearSelection(ecb);
 
         return result;
@@ -125,6 +125,23 @@ public partial class PlayerTurnSystem : SystemBase
         m_TurnPositions.Clear();
     }
 
+    void LoopMove(int x, int y, int offsetX, int offsetY, ChessBoardAspect boardAspect, in ChessPieceC pieceData)
+    {
+        while (true)
+        {
+            x += offsetX;
+            y += offsetY;
+
+            bool hasTurn = TryAddTurn(x, y, true, true, boardAspect, m_TurnPositions, pieceData, out bool hasEnemy);
+
+            if (hasEnemy)
+                break;
+
+            if (!hasTurn)
+                break;
+        }
+    }
+
     void RecalculatePossibleTurns(EntityCommandBuffer ecb, Entity selectedE)
     {
         var boardE = SystemAPI.GetSingletonEntity<ChessBoardC>();
@@ -174,14 +191,45 @@ public partial class PlayerTurnSystem : SystemBase
 
                 break;
             case ChessType.Bishop:
+
+                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, pieceData.ValueRO);
+
                 break;
             case ChessType.Rook:
+                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, pieceData.ValueRO);
                 break;
             case ChessType.Knight:
 
 
+                TryAddTurn(socketC.x + 2, socketC.y + 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x + 2, socketC.y - 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+
+                TryAddTurn(socketC.x - 2, socketC.y + 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x - 2, socketC.y - 1, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+
+                TryAddTurn(socketC.x - 1, socketC.y + 2, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x + 1, socketC.y + 2, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+
+                TryAddTurn(socketC.x + 1, socketC.y - 2, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x - 1, socketC.y - 2, true, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool _);
+
                 break;
             case ChessType.Queen:
+                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, pieceData.ValueRO);
+
                 break;
             case ChessType.King:
                 Debug.Log("King Selected");
