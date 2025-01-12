@@ -12,29 +12,51 @@ public struct ChessPiecesPrefabs
     public Entity rook;
 }
 
-public struct ChessBoardC : IComponentData
+public struct ChessBoardPersistentC : IComponentData
 {
     public float3 spawnGridOffset;
     public float3 offsetBetweenSockets;
     public Entity socketPrefab;
+    public Entity chessBoardPrefab;
 
-    public ChessPiecesPrefabs black;
-    public ChessPiecesPrefabs white;
+    public ChessPiecesPrefabs blackPiecesPrefabs;
+    public ChessPiecesPrefabs whitePiecesPrefabs;
+}
+public struct ChessBoardInstanceT : IComponentData
+{
 
 }
-
-[InternalBufferCapacity(64)]
+    [InternalBufferCapacity(64)]
 public struct ChessBoardSockets : IBufferElementData
 {
     public Entity socketE;
 }
 
-public struct ChessGameStateT : IComponentData
+public struct ChessStartGameT : IComponentData
+{
+    
+}
+
+public struct ChessBoardTurnC : IComponentData
 {
     public PieceColor turnColor;
 }
+public struct ChessGameWhitePiecesBuffer : IBufferElementData
+{
+    public Entity pieceE;
+}
 
-public struct ChessBoardCreatedT : IComponentData
+public struct ChessGamePiecesC : IComponentData
+{
+    public Entity whiteKingE;
+    public Entity blackKingE;
+}
+
+public struct ChessGameBlackPiecesBuffer : IBufferElementData
+{
+    public Entity pieceE;
+}
+public struct ChessBoardInstanceCreatedT : IComponentData
 {
 
 }
@@ -43,7 +65,7 @@ public struct ChessPieceC : IComponentData
 {
     public ChessType chessType;
     public PieceColor color;
-    public bool movedOnce;
+    public bool isMovedOnce;
 
     public override string ToString()
     {

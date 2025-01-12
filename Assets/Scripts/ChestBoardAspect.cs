@@ -1,17 +1,21 @@
 using Unity.Collections;
 using Unity.Entities;
 
-readonly partial struct ChessBoardAspect : IAspect
+readonly partial struct ChessBoardPersistentAspect : IAspect
+{
+    public readonly RefRO<ChessBoardPersistentC> boardC;
+    public ChessPiecesPrefabs GetWhitePrefabs() => boardC.ValueRO.whitePiecesPrefabs;
+    public ChessPiecesPrefabs GetBlackPrefabs() => boardC.ValueRO.blackPiecesPrefabs;
+}
+
+readonly partial struct ChessBoardInstanceAspect : IAspect
 {
     public readonly Entity Self;
     readonly DynamicBuffer<ChessBoardSockets> boardSocketsB;
-    public readonly RefRO<ChessBoardC> boardC;
+    public readonly DynamicBuffer<LinkedEntityGroup> liked;
 
     public const int GRID_X = 8;
     public const int GRID_Y = 8;
-
-    public ChessPiecesPrefabs GetWhitePrefabs() => boardC.ValueRO.white;
-    public ChessPiecesPrefabs GetBlackPrefabs() => boardC.ValueRO.black;
 
 
     public ChessBoardSockets GetSocket(int x, int y)
@@ -37,7 +41,7 @@ readonly partial struct ChessBoardAspect : IAspect
 
     public bool IsBoardEnd(PieceColor color, int index)
     {
-        return color == PieceColor.Black && index >= 0 && index < GRID_Y 
+        return color == PieceColor.Black && index >= 0 && index < GRID_Y
             || color == PieceColor.White && index >= GRID_Y * GRID_X - GRID_Y && index < GRID_Y * GRID_X;
     }
 

@@ -18,6 +18,7 @@ public class ChessBoardAuthoring : MonoBehaviour
     public Vector3 spawnGridOffset;
     public Vector3 offsetBetweenSockets;
     public GameObject socketPrefab;
+    public GameObject chessBoard;
 
     public ChessPieces black;
     public ChessPieces white;
@@ -27,13 +28,14 @@ public class ChessBoardAuthoring : MonoBehaviour
         public override void Bake(ChessBoardAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent<ChessBoardC>(entity, new ChessBoardC
+            AddComponent<ChessBoardPersistentC>(entity, new ChessBoardPersistentC
             {
                 offsetBetweenSockets = authoring.offsetBetweenSockets,
                 spawnGridOffset = authoring.spawnGridOffset,
                 socketPrefab = GetEntity(authoring.socketPrefab, TransformUsageFlags.Dynamic),
-                black = GetPrefabs(authoring.black),
-                white = GetPrefabs(authoring.white)
+                chessBoardPrefab = GetEntity(authoring.chessBoard, TransformUsageFlags.Dynamic),
+                blackPiecesPrefabs = GetPrefabs(authoring.black),
+                whitePiecesPrefabs = GetPrefabs(authoring.white)
             });
         }
 

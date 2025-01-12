@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 628289594649618329}
   - component: {fileID: 2494969833596447751}
   - component: {fileID: 699498583280055809}
-  - component: {fileID: 4343443498181358978}
   m_Layer: 0
   m_Name: Board
   m_TagString: Untagged
@@ -107,32 +106,3 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: f10c2e64b5383f04f840dea170590ffd, type: 3}
---- !u!114 &4343443498181358978
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8772567954129559463}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 30bb8194de3e4da459973b2d63ab38e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  spawnGridOffset: {x: -5.3, y: 0, z: -5.27}
-  offsetBetweenSockets: {x: 1.5, y: 0, z: 1.5}
-  socketPrefab: {fileID: 7950022771690676485, guid: af562d672eb581e4e932c9de50b66c20, type: 3}
-  black:
-    bishop: {fileID: 2523833783965671810, guid: 8d0c0571cf662c64b9e99e086ff0009d, type: 3}
-    king: {fileID: 7938135830336865273, guid: 4cd342c82f66e7745bdc21c9305568c0, type: 3}
-    knight: {fileID: 7730649641414932893, guid: 8e7c3895b33d3774db35cba6596c9dd7, type: 3}
-    pawn: {fileID: 3158660747199227671, guid: a12e1c84ccb230f45b936384a84f1691, type: 3}
-    queen: {fileID: 5744755481860596209, guid: e0b0c24263754e34d852dad5f0776c53, type: 3}
-    rook: {fileID: 7873382687656756822, guid: 6f928b9a30374cd4784ab6555866f3c7, type: 3}
-  white:
-    bishop: {fileID: 5698404372195785650, guid: 148d81fc554d1d84a9a92d7951d15e09, type: 3}
-    king: {fileID: 5445781480586902981, guid: 6c3a7da8d4b3cf14b8e25773310e524e, type: 3}
-    knight: {fileID: 1841265454110534230, guid: 10c65c536c5aa4644a483c7e0089c340, type: 3}
-    pawn: {fileID: 7612165726262539954, guid: ca7ef877635e43446b20dbfc1cdc128d, type: 3}
-    queen: {fileID: 7434104652806417698, guid: 48df753427116214f8f23e87e3187316, type: 3}
-    rook: {fileID: 2533128213471136779, guid: c9f50cfd970651b40a6aac05fcef8ae2, type: 3}

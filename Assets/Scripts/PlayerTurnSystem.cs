@@ -19,8 +19,7 @@ public partial class PlayerTurnSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        RequireForUpdate<ChessGameStateT>();
-        RequireForUpdate<ChessBoardC>();
+        RequireForUpdate<ChessBoardInstanceT>();
 
         m_TurnPositions = new NativeList<ChessTurnPositions>(Allocator.Persistent);
         m_Camera = Camera.main;
@@ -45,6 +44,11 @@ public partial class PlayerTurnSystem : SystemBase
         ecb.Playback(EntityManager);
     }
 
+    void Castling()
+    {
+
+    }
+
     bool TryMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
     {
         bool result = false;
@@ -64,23 +68,24 @@ public partial class PlayerTurnSystem : SystemBase
                 ecb.AddComponent<ChessSocketPieceC>(raycastedSocketE, pieces);
                 var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieces.pieceE);
                 var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieces.pieceE);
-                pieceData.ValueRW.movedOnce = true;
+                pieceData.ValueRW.isMovedOnce = true;
                 ltw.ValueRW.Position = SystemAPI.GetComponent<LocalTransform>(raycastedSocketE).Position;
                 ecb.RemoveComponent<ChessSocketPieceC>(m_LastSelected);
 
 
                 if (pieceData.ValueRO.chessType == ChessType.Pawn)
                 {
-                    var boardE = SystemAPI.GetSingletonEntity<ChessBoardC>();
-                    var boardAspect = SystemAPI.GetAspect<ChessBoardAspect>(boardE);
+                    var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+                    var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
 
+                    var prefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
                     var color = pieceData.ValueRO.color;
 
                     if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(raycastedSocketE)))
                     {
                         var queenPrefab = color == PieceColor.White ?
-                            boardAspect.GetWhitePrefabs().queen :
-                            boardAspect.GetBlackPrefabs().queen;
+                            prefabs.whitePiecesPrefabs.queen :
+                           prefabs.blackPiecesPrefabs.queen;
 
                         ecb.DestroyEntity(pieces.pieceE);
                         var instace = ecb.Instantiate(queenPrefab);
@@ -88,7 +93,7 @@ public partial class PlayerTurnSystem : SystemBase
                         {
                             chessType = ChessType.Queen,
                             color = color,
-                            movedOnce = true
+                            isMovedOnce = true
                         });
                         ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(raycastedSocketE));
                         ecb.AddComponent<ChessSocketPieceC>(raycastedSocketE, new ChessSocketPieceC
@@ -97,8 +102,14 @@ public partial class PlayerTurnSystem : SystemBase
                         });
                     }
                 }
+                else if (pieceData.ValueRO.chessType == ChessType.Rook && !pieceData.ValueRO.isMovedOnce)
+                {
 
-                var chessGameState = SystemAPI.GetSingletonRW<ChessGameStateT>();
+                }
+
+                pieceData.ValueRW.isMovedOnce = true;
+
+                var chessGameState = SystemAPI.GetSingletonRW<ChessBoardTurnC>();
                 chessGameState.ValueRW.turnColor = PieceColor.White == chessGameState.ValueRW.turnColor ? PieceColor.Black : PieceColor.White;
                 break;
             }
@@ -116,7 +127,7 @@ public partial class PlayerTurnSystem : SystemBase
 
         if (Input.GetMouseButtonDown(0))
         {
-            var state = SystemAPI.GetSingleton<ChessGameStateT>();
+            var state = SystemAPI.GetSingleton<ChessBoardTurnC>();
 
             var ray = m_Camera.ScreenPointToRay(Input.mousePosition);
             var raycastedSocketE = Raycast(ray.origin, ray.origin + ray.direction * 200f);
@@ -158,7 +169,7 @@ public partial class PlayerTurnSystem : SystemBase
         m_TurnPositions.Clear();
     }
 
-    void LoopMove(int x, int y, int offsetX, int offsetY, ChessBoardAspect boardAspect, in ChessPieceC pieceData)
+    void LoopMove(int x, int y, int offsetX, int offsetY, ChessBoardInstanceAspect boardAspect, in ChessPieceC pieceData)
     {
         while (true)
         {
@@ -177,8 +188,8 @@ public partial class PlayerTurnSystem : SystemBase
 
     void RecalculatePossibleTurns(EntityCommandBuffer ecb, Entity selectedE)
     {
-        var boardE = SystemAPI.GetSingletonEntity<ChessBoardC>();
-        var boardAspect = SystemAPI.GetAspect<ChessBoardAspect>(boardE);
+        var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+        var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
 
         if (!SystemAPI.HasComponent<ChessSocketC>(selectedE))
             return;
@@ -214,7 +225,7 @@ public partial class PlayerTurnSystem : SystemBase
 
                     if (TryAddTurn(x, y, false, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out bool hasEnemy))
                     {
-                        if (!hasEnemy && !pieceData.ValueRO.movedOnce)
+                        if (!hasEnemy && !pieceData.ValueRO.isMovedOnce)
                         {
                             y += offset;
                             TryAddTurn(x, y, false, true, boardAspect, m_TurnPositions, pieceData.ValueRO, out hasEnemy);
@@ -341,19 +352,19 @@ public partial class PlayerTurnSystem : SystemBase
 
     bool IsValidXY(int x, int y)
     {
-        if (x < 0 || x >= ChessBoardAspect.GRID_X)
+        if (x < 0 || x >= ChessBoardInstanceAspect.GRID_X)
         {
             return false;
         }
 
-        if (y < 0 || y >= ChessBoardAspect.GRID_Y)
+        if (y < 0 || y >= ChessBoardInstanceAspect.GRID_Y)
         {
             return false;
         }
 
         return true;
     }
-    private bool TryAddTurn(int x, int y, bool canBeatEnemy, bool canMoveToEmpty, ChessBoardAspect boardAspect, NativeList<ChessTurnPositions> turns, in ChessPieceC pieceData, out bool hasEnemy)
+    private bool TryAddTurn(int x, int y, bool canBeatEnemy, bool canMoveToEmpty, ChessBoardInstanceAspect boardAspect, NativeList<ChessTurnPositions> turns, in ChessPieceC pieceData, out bool hasEnemy)
     {
         hasEnemy = false;
         if (!IsValidXY(x, y))
