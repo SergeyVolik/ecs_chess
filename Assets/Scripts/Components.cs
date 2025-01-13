@@ -62,6 +62,14 @@ public struct ChessPieceC : IComponentData
     }
 }
 
+public struct ChessPiecePossibleSteps : IBufferElementData
+{
+    public Entity socketE;
+
+    public ChessSocketC socketPos;
+    public bool hasEnemy;
+}
+
 public struct ChessSocketSelectedT : IComponentData
 {
 

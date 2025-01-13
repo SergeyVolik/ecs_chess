@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Net.Sockets;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -19,20 +21,16 @@ public partial class PlayerTurnSystem : SystemBase
     private Entity m_LastSelectedSocket;
     private Entity m_LastSelectedPieceE;
 
-    NativeList<ChessTurnPositions> m_TurnForSelected;
     protected override void OnCreate()
     {
         base.OnCreate();
         RequireForUpdate<ChessBoardInstanceT>();
-
-        m_TurnForSelected = new NativeList<ChessTurnPositions>(Allocator.Persistent);
         m_Camera = Camera.main;
     }
 
     protected override void OnDestroy()
     {
         base.OnDestroy();
-        m_TurnForSelected.Dispose();
     }
 
     protected override void OnUpdate()
@@ -42,7 +40,7 @@ public partial class PlayerTurnSystem : SystemBase
 
         if (hasCorrectInput)
         {
-            CalculatePossibleTurnsForPiece(m_LastSelectedPieceE, m_TurnForSelected);
+            RecalculatePossibleStepsForBoard();
             ShowSelectedAndTurns(ecb);
         }
 
@@ -78,20 +76,16 @@ public partial class PlayerTurnSystem : SystemBase
         return false;
     }
 
-    bool IsSocketUnderAttack(Entity socket, PieceColor targetColor, ChessBoardInstanceAspect board, out int numberOfAttackers)
+    bool IsSocketUnderAttack(Entity socket, bool isWhite, ChessBoardInstanceAspect board, out int numberOfAttackers)
     {
         numberOfAttackers = 0;
-        NativeArray<Entity> attackes = targetColor == PieceColor.White ?
+        NativeArray<Entity> attackes = isWhite ?
             board.boardPiecesBlack.Reinterpret<Entity>().AsNativeArray() :
             board.boardPiecesWhite.Reinterpret<Entity>().AsNativeArray();
 
-        NativeList<ChessTurnPositions> turns = new NativeList<ChessTurnPositions>(Allocator.Temp);
         foreach (var attacker in attackes)
         {
-            turns.Clear();
-            CalculatePossibleTurnsForPiece(attacker, turns);
-
-            foreach (var turn1 in turns)
+            foreach (var turn1 in GetPossibleSteps(attacker))
             {
                 if (turn1.socketE == socket)
                 {
@@ -101,6 +95,36 @@ public partial class PlayerTurnSystem : SystemBase
         }
 
         return numberOfAttackers > 0;
+    }
+
+    ChessBoardInstanceAspect GetBoard()
+    {
+        var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+        return SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
+    }
+
+    void RecalculatePossibleStepsForBoard()
+    {
+        var board = GetBoard();
+
+        RecalculatePossibleStepsForBlack(board);
+        RecalculatePossibleStepsForWhite(board);
+    }
+
+    void RecalculatePossibleStepsForBlack(ChessBoardInstanceAspect board)
+    {
+        foreach (var item in board.boardPiecesBlack)
+        {
+            RecalculatePossibleTurnsForPiece(item.pieceE, board);
+        }
+    }
+
+    void RecalculatePossibleStepsForWhite(ChessBoardInstanceAspect board)
+    {
+        foreach (var item in board.boardPiecesWhite)
+        {
+            RecalculatePossibleTurnsForPiece(item.pieceE, board);
+        }
     }
 
     private void MovePieceToSocket(Entity sourceSocket, Entity destionationSocket, EntityCommandBuffer ecb)
@@ -123,9 +147,13 @@ public partial class PlayerTurnSystem : SystemBase
 
     bool TryMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
     {
+        if (!SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE))
+            return false;
+
         bool result = false;
 
-        foreach (var item in m_TurnForSelected)
+        var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
+        foreach (var item in turnForSelected)
         {
             if (item.socketE == raycastedSocketE)
             {
@@ -222,7 +250,7 @@ public partial class PlayerTurnSystem : SystemBase
                             bool isUnderAttack = false;
                             foreach (var item1 in checkSockets)
                             {
-                                if (IsSocketUnderAttack(item1, pieceData.color, boardAspect, out _))
+                                if (IsSocketUnderAttack(item1, isWhite, boardAspect, out _))
                                 {
                                     isUnderAttack = true;
                                     break;
@@ -294,25 +322,32 @@ public partial class PlayerTurnSystem : SystemBase
             asp.Destory(ecb);
         }
 
-        foreach (var turn in m_TurnForSelected)
+        if (HasSelectedPiece())
         {
-            var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketE);
-            highlight.Destory(ecb);
+            var steps = GetSelectedPossibleSteps();
+            foreach (var turn in steps)
+            {
+                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketE);
+                highlight.Destory(ecb);
+            }
+
+            steps.Clear();
         }
+       
 
         m_LastSelectedSocket = Entity.Null;
         m_LastSelectedPieceE = Entity.Null;
-        m_TurnForSelected.Clear();
+      
     }
 
-    void LoopMove(int x, int y, int offsetX, int offsetY, ChessBoardInstanceAspect boardAspect, NativeList<ChessTurnPositions> chessTurnPositions, in ChessPieceC pieceData)
+    void LoopMove(int x, int y, int offsetX, int offsetY, ChessBoardInstanceAspect boardAspect, DynamicBuffer<ChessPiecePossibleSteps> chessTurnPositions, bool isWhite)
     {
         while (true)
         {
             x += offsetX;
             y += offsetY;
 
-            bool hasTurn = TryAddTurn(x, y, true, true, boardAspect, chessTurnPositions, pieceData, out bool hasEnemy);
+            bool hasTurn = TryAddTurn(x, y, true, true, boardAspect, chessTurnPositions, isWhite, out bool hasEnemy);
 
             if (hasEnemy)
                 break;
@@ -322,22 +357,39 @@ public partial class PlayerTurnSystem : SystemBase
         }
     }
 
-    void CalculatePossibleTurnsForPiece(Entity pieceAttacker, NativeList<ChessTurnPositions> turnPositions)
+    public bool HasSelectedPiece()
     {
-        if (!SystemAPI.HasComponent<ChessSocketC>(pieceAttacker))
+        return SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
+    }
+
+    DynamicBuffer<ChessPiecePossibleSteps> GetSelectedPossibleSteps()
+    {
+        return GetPossibleSteps(m_LastSelectedPieceE);
+    }
+
+    DynamicBuffer<ChessPiecePossibleSteps> GetPossibleSteps(Entity pieceE)
+    {
+        return SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE);
+    }
+
+    void RecalculatePossibleTurnsForPiece(Entity pieceAttackerE, ChessBoardInstanceAspect boardAspect)
+    {
+        if (!SystemAPI.HasComponent<ChessSocketC>(pieceAttackerE))
             return;
 
-        var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
-        var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
+        var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceAttackerE);
+        var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieceAttackerE);
 
-        var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceAttacker);
-        var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieceAttacker);
+        bool isWhite = pieceData.ValueRO.color == PieceColor.White;
+
+        var turnPositions = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceAttackerE);
+        turnPositions.Clear();
 
         switch (pieceData.ValueRO.chessType)
         {
             case ChessType.Pawn:
                 int offset = -1;
-                if (pieceData.ValueRO.color == PieceColor.White)
+                if (isWhite)
                 {
                     offset = 1;
                 }
@@ -345,20 +397,20 @@ public partial class PlayerTurnSystem : SystemBase
                 int x = socketC.x;
                 int y = socketC.y + offset;
 
-                TryAddTurn(x + 1, y, true, false, boardAspect, turnPositions, pieceData.ValueRO, out bool hasEnemy1);
-                TryAddTurn(x - 1, y, true, false, boardAspect, turnPositions, pieceData.ValueRO, out bool hasEnemy2);
+                TryAddTurn(x + 1, y, true, false, boardAspect, turnPositions, isWhite, out bool hasEnemy1);
+                TryAddTurn(x - 1, y, true, false, boardAspect, turnPositions, isWhite, out bool hasEnemy2);
 
                 if (!hasEnemy1 && !hasEnemy2)
                 {
                     x = socketC.x;
                     y = socketC.y + offset;
 
-                    if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, pieceData.ValueRO, out bool hasEnemy))
+                    if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out bool hasEnemy))
                     {
                         if (!hasEnemy && !pieceData.ValueRO.isMovedOnce)
                         {
                             y += offset;
-                            TryAddTurn(x, y, false, true, boardAspect, turnPositions, pieceData.ValueRO, out hasEnemy);
+                            TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out hasEnemy);
                         }
                     }
                 }
@@ -366,59 +418,75 @@ public partial class PlayerTurnSystem : SystemBase
                 break;
             case ChessType.Bishop:
 
-                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, turnPositions, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, turnPositions, isWhite);
 
                 break;
             case ChessType.Rook:
-                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, turnPositions, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, turnPositions, isWhite);
                 break;
             case ChessType.Knight:
+            
+                TryAddTurn(socketC.x + 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x + 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x + 2, socketC.y + 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(socketC.x + 2, socketC.y - 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x - 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x - 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x - 2, socketC.y + 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(socketC.x - 2, socketC.y - 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x - 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x + 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x - 1, socketC.y + 2, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(socketC.x + 1, socketC.y + 2, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-
-                TryAddTurn(socketC.x + 1, socketC.y - 2, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(socketC.x - 1, socketC.y - 2, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
+                TryAddTurn(socketC.x + 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x - 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
                 break;
             case ChessType.Queen:
-                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, turnPositions, pieceData.ValueRO);
-                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, turnPositions, pieceData.ValueRO);
+                LoopMove(socketC.x, socketC.y, 1, 0, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, 0, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 0, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 0, -1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 1, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, -1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, -1, 1, boardAspect, turnPositions, isWhite);
+                LoopMove(socketC.x, socketC.y, 1, -1, boardAspect, turnPositions, isWhite);
 
                 break;
             case ChessType.King:
+
                 x = socketC.x;
                 y = socketC.y;
 
-                TryAddTurn(x + 1, y, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x - 1, y, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x + 1, y + 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x - 1, y - 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x, y + 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x, y - 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x - 1, y + 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
-                TryAddTurn(x + 1, y - 1, true, true, boardAspect, turnPositions, pieceData.ValueRO, out bool _);
+                KingTurn(x + 1, y, isWhite, boardAspect, turnPositions);
+                KingTurn(x - 1, y, isWhite, boardAspect, turnPositions);
+                KingTurn(x + 1, y + 1, isWhite, boardAspect, turnPositions);
+                KingTurn(x - 1, y - 1, isWhite, boardAspect, turnPositions);
+                KingTurn(x, y + 1, isWhite, boardAspect, turnPositions);
+                KingTurn(x, y - 1, isWhite, boardAspect, turnPositions);
+                KingTurn(x - 1, y + 1, isWhite, boardAspect, turnPositions);
+                KingTurn(x + 1, y - 1, isWhite, boardAspect, turnPositions);
                 break;
             default:
                 break;
+        }
+    }
+
+    private void KingTurn(int x, int y, bool isWhite,
+        ChessBoardInstanceAspect boardAspect,
+        DynamicBuffer<ChessPiecePossibleSteps> turnPositions)
+    {
+        if (!IsValidXY(x, y))
+            return;
+
+        var socket = boardAspect.GetSocket(x, y);
+
+        if (!IsSocketUnderAttack(socket.socketE, isWhite, boardAspect, out _))
+        {
+            TryAddTurn(x, y, true, true, boardAspect, turnPositions, isWhite, out bool _);
         }
     }
 
@@ -431,17 +499,21 @@ public partial class PlayerTurnSystem : SystemBase
             highlight.ShowSelected(ecb);
         }
 
-        foreach (var turn in m_TurnForSelected)
+        if (HasSelectedPiece())
         {
-            var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketE);
+            var steps = GetSelectedPossibleSteps();
+            foreach (var turn in steps)
+            {
+                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketE);
 
-            if (turn.hasEnemy)
-            {
-                highlight.ShowEnemy(ecb);
-            }
-            else
-            {
-                highlight.ShowMovePos(ecb);
+                if (turn.hasEnemy)
+                {
+                    highlight.ShowEnemy(ecb);
+                }
+                else
+                {
+                    highlight.ShowMovePos(ecb);
+                }
             }
         }
     }
@@ -492,14 +564,15 @@ public partial class PlayerTurnSystem : SystemBase
 
         return true;
     }
+
     private bool TryAddTurn(
         int x,
         int y,
         bool canBeatEnemy,
         bool canMoveToEmpty,
         ChessBoardInstanceAspect boardAspect,
-        NativeList<ChessTurnPositions> turns,
-        in ChessPieceC pieceData,
+        DynamicBuffer<ChessPiecePossibleSteps> turns,
+        bool isWhiteSource,
         out bool hasEnemy)
     {
         hasEnemy = false;
@@ -511,9 +584,10 @@ public partial class PlayerTurnSystem : SystemBase
         if (canBeatEnemy && HasPieceInSlot(socket.socketE))
         {
             var data = GetPieceDataFromSlot(socket.socketE);
-            if (IsEnemy(data.color, pieceData.color))
+            bool isWhiteTarget = data.color == PieceColor.White;
+            if (IsEnemy(isWhiteTarget, isWhiteSource))
             {
-                turns.Add(new ChessTurnPositions
+                turns.Add(new ChessPiecePossibleSteps
                 {
                     hasEnemy = true,
                     socketE = socket.socketE,
@@ -529,7 +603,7 @@ public partial class PlayerTurnSystem : SystemBase
         }
         else if (canMoveToEmpty)
         {
-            turns.Add(new ChessTurnPositions
+            turns.Add(new ChessPiecePossibleSteps
             {
                 hasEnemy = false,
                 socketE = socket.socketE,
@@ -551,9 +625,9 @@ public partial class PlayerTurnSystem : SystemBase
         return SystemAPI.GetComponent<ChessPieceC>(pieceE);
     }
 
-    private bool IsEnemy(PieceColor color, PieceColor color1)
+    private bool IsEnemy(bool isWhite, bool isWhite1)
     {
-        return color1 != color;
+        return isWhite != isWhite1;
     }
 
     private bool HasPieceInSlot(Entity e)
