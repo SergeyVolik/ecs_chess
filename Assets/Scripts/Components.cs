@@ -26,9 +26,12 @@ public struct ChessBoardInstanceT : IComponentData
 {
     public Entity whiteKingE;
     public Entity blackKingE;
-}
 
-[InternalBufferCapacity(64)]
+    public bool inisted;
+}
+public struct ChessBoardStepsInitedT : IComponentData { }
+
+    [InternalBufferCapacity(64)]
 public struct ChessBoardInstanceSockets : IBufferElementData
 {
     public Entity socketE;
@@ -64,9 +67,7 @@ public struct ChessPieceC : IComponentData
 
 public struct ChessPiecePossibleSteps : IBufferElementData
 {
-    public Entity socketE;
-
-    public ChessSocketC socketPos;
+    public ChessSocketC socketC;
     public bool hasEnemy;
 }
 
@@ -79,6 +80,7 @@ public struct ChessSocketC : IComponentData
 {
     public int x;
     public int y;
+    public Entity socketE;
 }
 
 public struct ChessSocketInitedT : IComponentData

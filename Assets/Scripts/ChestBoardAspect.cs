@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -17,11 +18,22 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
     public readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;
 
     public readonly RefRW<ChessBoardInstanceT> instanceC;
+    public readonly RefRW<ChessBoardTurnC> turnC;
+
     public readonly DynamicBuffer<LinkedEntityGroup> liked;
 
     public const int GRID_X = 8;
     public const int GRID_Y = 8;
 
+    public bool IsWhiteStep()
+    {
+        return turnC.ValueRW.turnColor == PieceColor.White;
+    }
+
+    public Entity GetCurrentKing()
+    {
+        return IsWhiteStep() ? instanceC.ValueRO.whiteKingE : instanceC.ValueRO.blackKingE;
+    }
 
     public ChessBoardInstanceSockets GetSocket(int x, int y)
     {
@@ -174,4 +186,9 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 
     public ChessBoardInstanceSockets GetKingSocketWhite() => GetSocket(3, 0);
     public ChessBoardInstanceSockets GetKingSocketBlack() => GetSocket(3, GRID_Y - 1);
+
+    internal void NextTurn()
+    {
+        turnC.ValueRW.turnColor = IsWhiteStep() ? PieceColor.Black : PieceColor.White;
+    }
 }

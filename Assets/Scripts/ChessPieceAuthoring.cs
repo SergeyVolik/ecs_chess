@@ -32,6 +32,7 @@ public class ChessPieceAuthoring : MonoBehaviour
                 chessType = authoring.chessType,
                 color = authoring.color,
             });
+            AddComponent<ChessSocketC>(entity);
             AddBuffer<ChessPiecePossibleSteps>(entity);
         }
     }

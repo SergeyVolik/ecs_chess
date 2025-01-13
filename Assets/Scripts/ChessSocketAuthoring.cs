@@ -18,7 +18,7 @@ public class ChessSocketAuthoring : MonoBehaviour
             {
 
             });
-
+            AddComponent<ChessSocketPieceLinkC>(entity);
             AddComponent<ChessSocketHighlightC>(entity, new ChessSocketHighlightC
             {
                 highlightEnemyPrefab = GetEntity(authoring.highlightEnemy, TransformUsageFlags.Dynamic),
@@ -26,5 +26,24 @@ public class ChessSocketAuthoring : MonoBehaviour
                 highlightMovePosPrefab = GetEntity(authoring.highlightMovePos, TransformUsageFlags.Dynamic),
             });
         }
+    }
+}
+
+readonly partial struct ChessSicketAspect : IAspect
+{
+    public readonly Entity Self;
+    public readonly RefRW<ChessSocketC> socketC;
+    readonly RefRW<ChessSocketPieceLinkC> link;
+
+    public bool IsPieceLinked() => link.ValueRO.pieceE != Entity.Null;
+
+    public void ResetPiece()
+    {
+        link.ValueRW.pieceE = Entity.Null;
+    }
+
+    public void SetPiece(Entity piece)
+    {
+        link.ValueRW.pieceE = piece;
     }
 }

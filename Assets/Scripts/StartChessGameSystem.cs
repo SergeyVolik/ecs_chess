@@ -41,6 +41,11 @@ public partial struct StartChessGameSystem : ISystem
             ecb.DestroyEntity(c.entity);
         }
 
+        foreach (var (c, e) in SystemAPI.Query<ChessSocketC>().WithEntityAccess())
+        {
+            ecb.DestroyEntity(e);
+        }
+
         foreach (var (c, e) in SystemAPI.Query<ChessBoardInstanceT>().WithEntityAccess())
         {
             ecb.DestroyEntity(e);
@@ -66,7 +71,8 @@ public partial struct StartChessGameSystem : ISystem
                 ecb.SetComponent<ChessSocketC>(socketInstance, new ChessSocketC
                 {
                     x = x,
-                    y = z
+                    y = z,
+                    socketE = socketInstance
                 });
 
                 ecb.AddComponent<Parent>(socketInstance, new Parent
@@ -77,11 +83,6 @@ public partial struct StartChessGameSystem : ISystem
                 sockets.Add(new ChessBoardInstanceSockets
                 {
                     socketE = socketInstance,
-                });
-
-                ecb.AppendToBuffer<LinkedEntityGroup>(boardE, new LinkedEntityGroup
-                {
-                    Value = socketInstance,
                 });
             }
         }
@@ -99,9 +100,9 @@ public partial struct StartChessGameSystem : ISystem
         var whitePrefabs = bC.whitePiecesPrefabs;
         var blackPrefabs = bC.blackPiecesPrefabs;
 
-       
+
         //SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
-        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);     
+        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
         //SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);    
         //SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
         //SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
@@ -113,7 +114,7 @@ public partial struct StartChessGameSystem : ISystem
         //SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
         //SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), ecb, whitePrefabs.king, boardE);
-     
+
 
         ecb.Playback(state.EntityManager);
 
@@ -157,11 +158,6 @@ public partial struct StartChessGameSystem : ISystem
             ecb.AddComponent<Parent>(instance, new Parent
             {
                 Value = boardE
-            });
-
-            ecb.AppendToBuffer<LinkedEntityGroup>(boardE, new LinkedEntityGroup
-            {
-                Value = instance,
             });
 
             ecb.AddComponent<ChessSocketC>(instance, SystemAPI.GetComponent<ChessSocketC>(item.socketE));
