@@ -109,11 +109,16 @@ public partial class PlayerTurnSystem : SystemBase
         ecb.AddComponent<ChessSocketPieceLinkC>(destionationSocket, pieces);
 
         var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieces.pieceE);
-        var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieces.pieceE);
-        pieceData.ValueRW.isMovedOnce = true;
+        var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
         ecb.AddComponent<ChessSocketC>(pieces.pieceE, SystemAPI.GetComponent<ChessSocketC>(destionationSocket));
         ltw.ValueRW.Position = SystemAPI.GetComponent<LocalTransform>(destionationSocket).Position;
         ecb.RemoveComponent<ChessSocketPieceLinkC>(sourceSocket);
+        ecb.SetComponent<ChessPieceC>(pieces.pieceE, new ChessPieceC
+        {
+            chessType = pieceData.chessType,
+            color = pieceData.color,
+            isMovedOnce = true
+        });
     }
 
     bool TryMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
@@ -130,24 +135,19 @@ public partial class PlayerTurnSystem : SystemBase
                     ecb.DestroyEntity(toDestory.pieceE);
                 }
 
-                result = true;
-              
+                result = true;             
+
+                MovePieceToSocket(m_LastSelectedSocket, raycastedSocketE, ecb);
+
                 var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(m_LastSelectedSocket);
-                ecb.AddComponent<ChessSocketPieceLinkC>(raycastedSocketE, pieces);
-
-                var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieces.pieceE);
-                var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieces.pieceE);
-                ecb.AddComponent<ChessSocketC>(pieces.pieceE, SystemAPI.GetComponent<ChessSocketC>(raycastedSocketE));
-                ltw.ValueRW.Position = SystemAPI.GetComponent<LocalTransform>(raycastedSocketE).Position;
-                ecb.RemoveComponent<ChessSocketPieceLinkC>(m_LastSelectedSocket);
-
-                //upgrade for pawn
-                if (pieceData.ValueRO.chessType == ChessType.Pawn)
+                var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
+                //pawn promotion
+                if (pieceData.chessType == ChessType.Pawn)
                 {
                     var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
                     var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
 
-                    var color = pieceData.ValueRO.color;
+                    var color = pieceData.color;
 
                     if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(raycastedSocketE)))
                     {
@@ -174,11 +174,12 @@ public partial class PlayerTurnSystem : SystemBase
                         });
                     }
                 }
-                else if (pieceData.ValueRO.chessType == ChessType.Rook && !pieceData.ValueRO.isMovedOnce)
+                //castling
+                else if (pieceData.chessType == ChessType.Rook && !pieceData.isMovedOnce)
                 {
                     var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
                     var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
-                    bool isWhite = pieceData.ValueRO.color == PieceColor.White;
+                    bool isWhite = pieceData.color == PieceColor.White;
                     var kingE = isWhite ?
                         boardAspect.instanceC.ValueRO.whiteKingE : boardAspect.instanceC.ValueRO.blackKingE;
 
@@ -211,9 +212,6 @@ public partial class PlayerTurnSystem : SystemBase
                                 {
                                     var socket1 = boardAspect.GetSocket(kingSocket.x, kingSocket.y).socketE;
                                     var socket3 = boardAspect.GetSocket(kingSocket.x + offset * 2, kingSocket.y).socketE;
-                                    Debug.Log($"x:{kingSocket.x}y:{kingSocket.y}");
-                                    Debug.Log($"x:{kingSocket.x}y:{kingSocket.y}");
-                                    Debug.Log($"x:{kingSocket.x}y:{kingSocket.y}");
 
                                     checkSockets.Add(socket1);
                                     checkSockets.Add(socket2);
@@ -224,7 +222,7 @@ public partial class PlayerTurnSystem : SystemBase
                             bool isUnderAttack = false;
                             foreach (var item1 in checkSockets)
                             {
-                                if (IsSocketUnderAttack(item1, pieceData.ValueRO.color, boardAspect, out _))
+                                if (IsSocketUnderAttack(item1, pieceData.color, boardAspect, out _))
                                 {
                                     isUnderAttack = true;
                                     break;
@@ -239,7 +237,7 @@ public partial class PlayerTurnSystem : SystemBase
                     }
                 }
 
-                pieceData.ValueRW.isMovedOnce = true;
+              
 
                 var chessGameState = SystemAPI.GetSingletonRW<ChessBoardTurnC>();
                 chessGameState.ValueRW.turnColor = PieceColor.White == chessGameState.ValueRW.turnColor ? PieceColor.Black : PieceColor.White;
@@ -407,7 +405,6 @@ public partial class PlayerTurnSystem : SystemBase
 
                 break;
             case ChessType.King:
-                Debug.Log("King Selected");
                 x = socketC.x;
                 y = socketC.y;
 
