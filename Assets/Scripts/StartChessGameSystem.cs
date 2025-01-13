@@ -36,6 +36,11 @@ public partial struct StartChessGameSystem : ISystem
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+        foreach (var (c, e) in SystemAPI.Query<ChessSocketHighlightInstanceC>().WithEntityAccess())
+        {
+            ecb.DestroyEntity(c.entity);
+        }
+
         foreach (var (c, e) in SystemAPI.Query<ChessBoardInstanceT>().WithEntityAccess())
         {
             ecb.DestroyEntity(e);

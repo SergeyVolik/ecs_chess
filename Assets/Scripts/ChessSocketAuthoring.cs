@@ -18,7 +18,7 @@ public class ChessSocketAuthoring : MonoBehaviour
             {
 
             });
-            AddComponent<ChessSocketHighlightInstanceC>(entity);
+
             AddComponent<ChessSocketHighlightC>(entity, new ChessSocketHighlightC
             {
                 highlightEnemyPrefab = GetEntity(authoring.highlightEnemy, TransformUsageFlags.Dynamic),

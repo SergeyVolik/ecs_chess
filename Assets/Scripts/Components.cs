@@ -90,7 +90,8 @@ public struct ChessSocketHighlightInstanceC : IComponentData
 {
     public Entity entity;
 }
-    public struct ChessSocketHighlightC : IComponentData
+
+public struct ChessSocketHighlightC : IComponentData
 {
     public Entity highlightSelectedPrefab;
     public Entity highlightMovePosPrefab;

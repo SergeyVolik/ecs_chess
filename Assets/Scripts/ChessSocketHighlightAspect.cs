@@ -4,15 +4,19 @@ using Unity.Transforms;
 readonly partial struct ChessSocketHighlightAspect : IAspect
 {
     private readonly RefRO<LocalTransform> transform;
-    private readonly RefRO<LocalToWorld> ltw;
 
     public readonly Entity selfE;
     private readonly RefRO<ChessSocketHighlightC> prefabsC;
+    [Optional]
     private readonly RefRW<ChessSocketHighlightInstanceC> instanceC;
 
     public void Destory(EntityCommandBuffer ecb)
     {
-        ecb.DestroyEntity(instanceC.ValueRO.entity);
+        if (instanceC.IsValid)
+        {
+            ecb.DestroyEntity(instanceC.ValueRO.entity);
+            ecb.RemoveComponent<ChessSocketHighlightInstanceC>(selfE);
+        }
     }
 
     public void ShowMovePos(EntityCommandBuffer ecb)
@@ -23,7 +27,7 @@ readonly partial struct ChessSocketHighlightAspect : IAspect
     public void ShowObject(EntityCommandBuffer ecb, Entity prefab)
     {
         var e = ecb.Instantiate(prefab);
-        ecb.SetComponent<ChessSocketHighlightInstanceC>(selfE, new ChessSocketHighlightInstanceC
+        ecb.AddComponent<ChessSocketHighlightInstanceC>(selfE, new ChessSocketHighlightInstanceC
         {
             entity = e
         });
