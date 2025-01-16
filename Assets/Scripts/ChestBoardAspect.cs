@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -14,8 +15,8 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 {
     public readonly Entity Self;
     readonly DynamicBuffer<ChessBoardInstanceSockets> boardSocketsB;
-    public readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
-    public readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;
+    private readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
+    private readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;
 
     public readonly RefRW<ChessBoardInstanceT> instanceC;
     public readonly RefRW<ChessBoardTurnC> turnC;
@@ -35,9 +36,44 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return IsWhiteStep() ? instanceC.ValueRO.whiteKingE : instanceC.ValueRO.blackKingE;
     }
 
+    public Entity GetWhiteKing()
+    {
+        return instanceC.ValueRO.whiteKingE;
+    }
+
+    public Entity GetBlackKing()
+    {
+        return instanceC.ValueRO.whiteKingE;
+    }
+
     public ChessBoardInstanceSockets GetSocket(int x, int y)
     {
         return boardSocketsB[y * GRID_Y + x];
+    }
+
+
+    public NativeArray<Entity> GetBlackPieces()
+    {
+        return boardPiecesBlack.Reinterpret<Entity>().AsNativeArray();
+    }
+
+    public NativeArray<Entity> GetWhitePieces()
+    {
+        return boardPiecesWhite.Reinterpret<Entity>().AsNativeArray();
+    }
+
+    public NativeArray<Entity> GetOponentPieces()
+    {
+       return IsWhiteStep() ?
+           boardPiecesBlack.Reinterpret<Entity>().AsNativeArray() :
+           boardPiecesWhite.Reinterpret<Entity>().AsNativeArray();
+    }
+
+    public NativeArray<Entity> GetCurrentPlayerPieces()
+    {
+        return IsWhiteStep() ?
+            boardPiecesWhite.Reinterpret<Entity>().AsNativeArray() :
+            boardPiecesBlack.Reinterpret<Entity>().AsNativeArray();
     }
 
     public ChessBoardInstanceSockets GetSocket(int index)

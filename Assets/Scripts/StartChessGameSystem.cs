@@ -101,18 +101,18 @@ public partial struct StartChessGameSystem : ISystem
         var blackPrefabs = bC.blackPiecesPrefabs;
 
 
-        //SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
         SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
-        //SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);    
-        //SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
-        //SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
+        SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
+        SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
+        SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), ecb, blackPrefabs.king, boardE);
 
-        //SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
         SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), ecb, whitePrefabs.rook, boardE);
-        //SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
-        //SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
-        //SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
+        SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
+        SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
+        SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), ecb, whitePrefabs.king, boardE);
 
 
