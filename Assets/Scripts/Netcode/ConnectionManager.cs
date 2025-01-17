@@ -7,6 +7,7 @@ using Unity.NetCode;
 using Unity.Networking.Transport;
 using Unity.Scenes;
 using UnityEngine;
+using static ConnectionManager;
 
 public class ConnectionManager : MonoBehaviour
 {
@@ -15,31 +16,45 @@ public class ConnectionManager : MonoBehaviour
 
     [SerializeField] private ushort m_Port = 7979;
     private Role m_Role;
-    
+
     public static World ServerWorld;
     public static World ClientWorld;
+
+    public static ConnectionManager Instance { get; private set; }
 
     public enum Role
     {
         ServerClient, Server, Client
     }
 
+
     private void Start()
     {
-        if (Application.isEditor)
-        {
-            m_Role = Role.ServerClient;
-        }
-        else if (Application.platform == RuntimePlatform.LinuxServer || Application.platform == RuntimePlatform.WindowsServer || Application.platform == RuntimePlatform.OSXServer)
-        {
-            m_Role = Role.Server;
-        }
-        else
-        {
-            m_Role = Role.Client;
-        }
+        Instance = this;
+    }
 
+    public void ConnectToServer()
+    {
+        m_Role = Role.Client;
         StartCoroutine(Connect());
+    }
+
+    public void CreateClientServer()
+    {
+        m_Role = Role.ServerClient;
+        StartCoroutine(Connect());
+    }
+
+    public void Disconnect()
+    {
+        foreach (var world in World.All)
+        {
+            if (world.Flags == WorldFlags.GameClient || world.Flags == WorldFlags.GameThinClient || world.Flags == WorldFlags.GameServer)
+            {
+                world.Dispose();
+                break;
+            }
+        }
     }
 
     public IEnumerator Connect()

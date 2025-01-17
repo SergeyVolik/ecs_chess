@@ -1,19 +1,17 @@
-using System;
-using Unity.Entities;
-using UnityEngine;
 using UnityEngine.UI;
 
 public class GameUI : BaseGameUI
 {
-    public Button startButton;
-
+    public Button leaveButton;
+    public MenuUI menuUI;
 
     protected override void Awake()
     {
-        startButton.onClick.AddListener(() =>
+        leaveButton.onClick.AddListener(() =>
         {
-            var e = World.DefaultGameObjectInjectionWorld.EntityManager.CreateEntity();
-            World.DefaultGameObjectInjectionWorld.EntityManager.AddComponent<ChessGameStartT>(e);
+            ConnectionManager.Instance.Disconnect();
+            Hide();
+            menuUI.Show();
         });
     }
 }

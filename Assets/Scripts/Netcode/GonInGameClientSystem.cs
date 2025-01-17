@@ -17,7 +17,7 @@ public partial struct GonInGameClientSystem : ISystem
     {
         var builder = new EntityQueryBuilder(Allocator.Temp);
         builder.WithAny<NetworkId>();
-        builder.WithNone<GoInGameCommand>();
+        builder.WithNone<NetworkStreamInGame>();
         state.RequireForUpdate(state.GetEntityQuery(builder));
     }
 

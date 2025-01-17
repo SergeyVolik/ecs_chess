@@ -5,6 +5,21 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
+public struct SetupPlayerRPC : IRpcCommand
+{
+    public bool isWhite;
+}
+
+public struct WhitePlayer : IComponentData
+{
+
+}
+
+public struct BlackPlayer : IComponentData
+{
+
+}
+
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct GonInGameServerSystem : ISystem
 {
@@ -22,6 +37,34 @@ public partial struct GonInGameServerSystem : ISystem
         foreach (var (request, command, entity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>, RefRO<GoInGameCommand>>().WithEntityAccess())
         {
             ecb.AddComponent<NetworkStreamInGame>(request.ValueRO.SourceConnection);
+        
+            var sendReq = ecb.CreateEntity();
+            ecb.AddComponent<SendRpcCommandRequest>(sendReq, new SendRpcCommandRequest
+            {
+                TargetConnection = request.ValueRO.SourceConnection
+            });
+
+            bool hasWhite = SystemAPI.HasSingleton<WhitePlayer>();
+            bool hasBlack = SystemAPI.HasSingleton<BlackPlayer>();
+
+            if (!hasWhite)
+            {
+                ecb.AddComponent<SetupPlayerRPC>(sendReq, new SetupPlayerRPC
+                {
+                    isWhite = true
+                });
+                ecb.AddComponent<WhitePlayer>(request.ValueRO.SourceConnection);
+               
+            }
+            else if(!hasBlack)
+            {
+                ecb.AddComponent<SetupPlayerRPC>(sendReq, new SetupPlayerRPC
+                {
+                    isWhite = false
+                });
+                ecb.AddComponent<BlackPlayer>(request.ValueRO.SourceConnection);
+            }
+
             ecb.DestroyEntity(entity);
         }
 
