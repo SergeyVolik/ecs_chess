@@ -21,18 +21,23 @@ public partial class ClientSetupBoardSystem : SystemBase
             if (command.ValueRO.isWhite)
             {
                 cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.whiteCameraPos);
-                ecb.AddComponent<WhitePlayer>(request.ValueRO.SourceConnection);
+                ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
+                     white = true
+                });
             }
             else
             {
                 cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.blackCameraPos);
-                ecb.AddComponent<BlackPlayer>(request.ValueRO.SourceConnection);
+                ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC
+                {
+                    white = false
+                });
             }
 
             var camera = Camera.main;
             camera.transform.position = cameraLtw.Position;
             camera.transform.rotation = cameraLtw.Rotation;
-
+            Debug.Log("[Client] setup camera");
             ecb.DestroyEntity(entity);
         }
 

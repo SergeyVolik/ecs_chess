@@ -32,6 +32,8 @@ public partial struct GonInGameClientSystem : ISystem
             var request = ecb.CreateEntity();
             ecb.AddComponent<GoInGameCommand>(request);
             ecb.AddComponent<SendRpcCommandRequest>(request);
+
+            Debug.Log("[Client] go in game");
         }
 
         ecb.Playback(state.EntityManager);

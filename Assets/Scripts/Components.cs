@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.NetCode;
 using Unity.Transforms;
 
 public struct ChessPiecesPrefabs
@@ -29,14 +30,15 @@ public struct ChessBoardPersistentC : IComponentData
 
 public struct ChessBoardInstanceT : IComponentData
 {
-    public Entity whiteKingE;
-    public Entity blackKingE;
 
-    public bool inisted;
+    [GhostField] public Entity whiteKingE;
+    [GhostField] public Entity blackKingE;
+
+    [GhostField] public bool inited;
 }
 public struct ChessBoardStepsInitedT : IComponentData { }
 
-    [InternalBufferCapacity(64)]
+[InternalBufferCapacity(64)]
 public struct ChessBoardInstanceSockets : IBufferElementData
 {
     public Entity socketE;
@@ -46,24 +48,25 @@ public struct ChessGameStartT : IComponentData { }
 
 public struct ChessBoardTurnC : IComponentData
 {
-    public PieceColor turnColor;
+    [GhostField] public PieceColor turnColor;
 }
 public struct ChessBoardWhitePiecesBuffer : IBufferElementData
 {
-    public Entity pieceE;
+    [GhostField] public Entity pieceE;
 }
 
 public struct ChessBoardBlackPiecesBuffer : IBufferElementData
 {
-    public Entity pieceE;
+    [GhostField] public Entity pieceE;
 }
+
 
 public struct ChessPieceC : IComponentData
 {
-    public ChessType chessType;
-    public PieceColor color;
-    public bool isMovedOnce;
-    public bool notActive;
+    [GhostField] public ChessType chessType;
+    [GhostField] public PieceColor color;
+    [GhostField] public bool isMovedOnce;
+    [GhostField] public bool notActive;
     public override string ToString()
     {
         return $"chessType: {chessType}";
@@ -72,8 +75,8 @@ public struct ChessPieceC : IComponentData
 
 public struct ChessPiecePossibleSteps : IBufferElementData
 {
-    public ChessSocketC socketC;
-    public bool hasEnemy;
+    [GhostField] public ChessSocketC socketC;
+    [GhostField] public bool hasEnemy;
 }
 
 public struct ChessSocketSelectedT : IComponentData
@@ -83,9 +86,9 @@ public struct ChessSocketSelectedT : IComponentData
 
 public struct ChessSocketC : IComponentData
 {
-    public int x;
-    public int y;
-    public Entity socketE;
+    [GhostField] public int x;
+    [GhostField] public int y;
+    [GhostField] public Entity socketE;
 }
 
 public struct ChessSocketInitedT : IComponentData
@@ -107,5 +110,5 @@ public struct ChessSocketHighlightC : IComponentData
 
 public struct ChessSocketPieceLinkC : IComponentData
 {
-    public Entity pieceE;
+    [GhostField] public Entity pieceE;
 }

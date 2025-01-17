@@ -13,7 +13,7 @@ public class ChessPieces
     public GameObject rook;
 }
 
-public class ChessBoardAuthoring : MonoBehaviour
+public class ChessBoardPersistentDataAuthoring : MonoBehaviour
 {
     public Vector3 spawnGridOffset;
     public Vector3 offsetBetweenSockets;
@@ -26,9 +26,9 @@ public class ChessBoardAuthoring : MonoBehaviour
     public Transform whitePlayerCameraPos;
     public Transform blackPlayerCameraPos;
 
-    public class Baker : Baker<ChessBoardAuthoring>
+    public class Baker : Baker<ChessBoardPersistentDataAuthoring>
     {
-        public override void Bake(ChessBoardAuthoring authoring)
+        public override void Bake(ChessBoardPersistentDataAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent<ChessBoardPersistentC>(entity, new ChessBoardPersistentC

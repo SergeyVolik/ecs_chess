@@ -10,14 +10,9 @@ public struct SetupPlayerRPC : IRpcCommand
     public bool isWhite;
 }
 
-public struct WhitePlayer : IComponentData
+public struct ChessPlayerC : IComponentData
 {
-
-}
-
-public struct BlackPlayer : IComponentData
-{
-
+    public bool white;
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -43,18 +38,31 @@ public partial struct GonInGameServerSystem : ISystem
             {
                 TargetConnection = request.ValueRO.SourceConnection
             });
-
-            bool hasWhite = SystemAPI.HasSingleton<WhitePlayer>();
-            bool hasBlack = SystemAPI.HasSingleton<BlackPlayer>();
-
+            bool hasWhite= false;
+            bool hasBlack = false;
+            foreach (var item in SystemAPI.Query<ChessPlayerC>())
+            {
+                if (item.white)
+                {
+                    hasWhite= true;
+                }
+                else
+                {
+                    hasBlack = true;
+                }
+            }
+          
             if (!hasWhite)
             {
                 ecb.AddComponent<SetupPlayerRPC>(sendReq, new SetupPlayerRPC
                 {
                     isWhite = true
                 });
-                ecb.AddComponent<WhitePlayer>(request.ValueRO.SourceConnection);
-               
+                ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
+                     white = true
+                });
+                Debug.Log($"[Server] go in game as white");
+
             }
             else if(!hasBlack)
             {
@@ -62,7 +70,11 @@ public partial struct GonInGameServerSystem : ISystem
                 {
                     isWhite = false
                 });
-                ecb.AddComponent<BlackPlayer>(request.ValueRO.SourceConnection);
+                ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC
+                {
+                    white = false
+                });
+                Debug.Log($"[Server] go in game as white");
             }
 
             ecb.DestroyEntity(entity);

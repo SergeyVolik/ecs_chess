@@ -1,28 +1,19 @@
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Physics;
+using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
 
-public struct ChessTurnPositions
+[WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+public partial class PlayerTurnServerSystem : SystemBase
 {
-    public Entity socketE;
-    public ChessSocketC socketPos;
-    public bool hasEnemy;
-}
-
-public partial class PlayerTurnSystem : SystemBase
-{
-    private Camera m_Camera;
-    private Entity m_LastSelectedSocket;
-    private Entity m_LastSelectedPieceE;
-
     protected override void OnCreate()
     {
         base.OnCreate();
         RequireForUpdate<ChessBoardInstanceT>();
-        m_Camera = Camera.main;
     }
 
     protected override void OnDestroy()
@@ -35,41 +26,21 @@ public partial class PlayerTurnSystem : SystemBase
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
         InitBoard(ecb);
-        bool isMoved = false;
-        bool isSelected = false;
 
-        if (RaycastSocket(out Entity raycastedSocketE))
+        var query = SystemAPI.QueryBuilder().WithAll<ReceiveRpcCommandRequest, MoveChessRPC>().Build();
+
+        if (!query.IsEmpty)
         {
-            var state = SystemAPI.GetSingleton<ChessBoardTurnC>();
-            if (SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE))
-            {
-                isMoved = TryMoveChess(raycastedSocketE, ecb);
-
-                if (!isMoved && HasPieceInSlot(raycastedSocketE))
-                {
-                    var pieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(raycastedSocketE).pieceE;
-                    var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
-                    if (state.turnColor == pieceData.color)
-                    {
-                        isSelected = true;
-                        ClearSelection(ecb);
-
-                        m_LastSelectedSocket = raycastedSocketE;
-                        m_LastSelectedPieceE = pieceE;
-                    }
-                }
-            }
-        }
-
-        ecb.Playback(EntityManager);
-        var ecb1 = new EntityCommandBuffer(Allocator.Temp);
-        if (isMoved)
-        {
-            Debug.Log("isMoved");
-            ClearSelection(ecb1);
-            RecalculatePossibleStepsForBoard();
-
+            var requests = query.ToEntityArray(Allocator.Temp);
+            ecb.DestroyEntity(query, EntityQueryCaptureMode.AtPlayback);
             var board = GetBoard();
+            var rpc = SystemAPI.GetComponent<MoveChessRPC>(requests[0]);
+            var moveFrom = board.GetSocket(rpc.fromIndex).socketE;
+            var moveTo = board.GetSocket(rpc.toIndex).socketE;
+
+            TryMoveChess(moveFrom, moveTo, ecb);
+
+            RecalculatePossibleStepsForBoard();
 
             var king = board.GetCurrentKing();
             var pieces = board.GetCurrentPlayerPieces();
@@ -107,14 +78,8 @@ public partial class PlayerTurnSystem : SystemBase
             }
         }
 
-        if (isSelected)
-        {
-            Debug.Log("isSelected");
 
-            ShowSelectedAndTurns(ecb1);
-        }
-
-        ecb1.Playback(EntityManager);
+        ecb.Playback(EntityManager);
     }
 
     bool IsGameFinishedEnd()
@@ -407,13 +372,14 @@ public partial class PlayerTurnSystem : SystemBase
         Debug.Log($"move from {prevMoveData.fromPos} to {prevMoveData.toPos}");
     }
 
-    bool IsCorrectSocketToMove(Entity raycastedSocketE)
+    bool IsCorrectSocketToMove(Entity moveFrom, Entity moveTo)
     {
-        var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
+        var piece = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFrom).pieceE;
+        var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(piece);
 
         foreach (var item in turnForSelected)
         {
-            if (item.socketC.socketE == raycastedSocketE)
+            if (item.socketC.socketE == moveTo)
             {
                 return true;
             }
@@ -422,23 +388,23 @@ public partial class PlayerTurnSystem : SystemBase
         return false;
     }
 
-    bool TryMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
+    bool TryMoveChess(Entity moveFrom, Entity moveTo, EntityCommandBuffer ecb)
     {
-        if (!SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE))
+        if (!SystemAPI.HasBuffer<ChessPiecePossibleSteps>(moveFrom))
             return false;
 
-        if (!IsCorrectSocketToMove(raycastedSocketE))
+        if (!IsCorrectSocketToMove(moveFrom, moveTo))
         {
             return false;
         }
 
-        if (HasPieceInSlot(raycastedSocketE))
+        if (HasPieceInSlot(moveTo))
         {
-            var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(raycastedSocketE);
+            var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveTo);
             ecb.DestroyEntity(toDestory.pieceE);
         }
 
-        var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(m_LastSelectedSocket);
+        var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFrom);
         var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
 
         var boardAspect = GetBoard();
@@ -446,10 +412,10 @@ public partial class PlayerTurnSystem : SystemBase
         //pawn promotion
         if (pieceData.chessType == ChessType.Pawn)
         {
-            MoveFromToSocket(m_LastSelectedSocket, raycastedSocketE);
+            MoveFromToSocket(moveFrom, moveTo);
             var color = pieceData.color;
 
-            if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(raycastedSocketE)))
+            if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(moveTo)))
             {
                 var prefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
 
@@ -465,9 +431,9 @@ public partial class PlayerTurnSystem : SystemBase
                     color = color,
                     isMovedOnce = true
                 });
-                ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(raycastedSocketE));
-                ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(raycastedSocketE));
-                ecb.AddComponent<ChessSocketPieceLinkC>(raycastedSocketE, new ChessSocketPieceLinkC
+                ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(moveTo));
+                ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(moveTo));
+                ecb.AddComponent<ChessSocketPieceLinkC>(moveTo, new ChessSocketPieceLinkC
                 {
                     pieceE = instace
                 });
@@ -482,7 +448,7 @@ public partial class PlayerTurnSystem : SystemBase
 
             var kingPiece = SystemAPI.GetComponent<ChessPieceC>(kingE);
 
-            if (!kingPiece.isMovedOnce && !HasPieceInSlot(raycastedSocketE))
+            if (!kingPiece.isMovedOnce && !HasPieceInSlot(moveTo))
             {
                 var kingSocket = SystemAPI.GetComponent<ChessSocketC>(kingE);
                 var pieceSocket = SystemAPI.GetComponent<ChessSocketC>(pieces.pieceE);
@@ -490,7 +456,7 @@ public partial class PlayerTurnSystem : SystemBase
                 var kingSocketLeftE = boardAspect.GetSocket(kingSocket.x - 1, kingSocket.y).socketE;
                 var kingSocketRightE = boardAspect.GetSocket(kingSocket.x + 1, kingSocket.y).socketE;
 
-                if (raycastedSocketE == kingSocketLeftE || raycastedSocketE == kingSocketRightE)
+                if (moveTo == kingSocketLeftE || moveTo == kingSocketRightE)
                 {
                     NativeList<Entity> checkSockets = new NativeList<Entity>(Allocator.Temp);
 
@@ -529,55 +495,16 @@ public partial class PlayerTurnSystem : SystemBase
                     }
                 }
             }
-            MoveFromToSocket(m_LastSelectedSocket, raycastedSocketE);
+            MoveFromToSocket(moveFrom, moveTo);
         }
         else
         {
-            MoveFromToSocket(m_LastSelectedSocket, raycastedSocketE);
+            MoveFromToSocket(moveFrom, moveTo);
         }
 
         boardAspect.NextTurn();
-        ClearSelection(ecb);
 
         return true;
-    }
-
-    bool RaycastSocket(out Entity raycastedSocketE)
-    {
-        raycastedSocketE = Entity.Null;
-
-        if (Input.GetMouseButtonDown(0))
-        {
-            var ray = m_Camera.ScreenPointToRay(Input.mousePosition);
-            raycastedSocketE = Raycast(ray.origin, ray.origin + ray.direction * 200f);
-
-            return SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE);
-        }
-
-        return false;
-    }
-
-    void ClearSelection(EntityCommandBuffer ecb)
-    {
-        if (SystemAPI.HasComponent<ChessSocketSelectedT>(m_LastSelectedSocket))
-        {
-            ecb.RemoveComponent<ChessSocketSelectedT>(m_LastSelectedSocket);
-            var asp = SystemAPI.GetAspect<ChessSocketHighlightAspect>(m_LastSelectedSocket);
-            asp.Destory(ecb);
-        }
-
-        if (HasSelectedPiece())
-        {
-            var steps = GetSelectedPossibleSteps();
-            foreach (var turn in steps)
-            {
-                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketC.socketE);
-                highlight.Destory(ecb);
-            }
-        }
-
-        m_LastSelectedSocket = Entity.Null;
-        m_LastSelectedPieceE = Entity.Null;
     }
 
     void LoopMove(
@@ -605,18 +532,9 @@ public partial class PlayerTurnSystem : SystemBase
         }
     }
 
-    public bool HasSelectedPiece()
-    {
-        return SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
-    }
     bool HasPossibleSteps(Entity pieceE)
     {
         return SystemAPI.HasBuffer<ChessPiecePossibleSteps>(pieceE);
-    }
-
-    DynamicBuffer<ChessPiecePossibleSteps> GetSelectedPossibleSteps()
-    {
-        return GetPossibleSteps(m_LastSelectedPieceE);
     }
 
     DynamicBuffer<ChessPiecePossibleSteps> GetPossibleSteps(Entity pieceE)
@@ -656,20 +574,20 @@ public partial class PlayerTurnSystem : SystemBase
                 int x = socketC.x;
                 int y = socketC.y + offset;
 
-                TryAddTurn(x + 1, y, true, false, boardAspect, turnPositions, isWhite,  out bool hasEnemy1);
-                TryAddTurn(x - 1, y, true, false, boardAspect, turnPositions, isWhite,  out bool hasEnemy2);
+                TryAddTurn(x + 1, y, true, false, boardAspect, turnPositions, isWhite, out bool hasEnemy1);
+                TryAddTurn(x - 1, y, true, false, boardAspect, turnPositions, isWhite, out bool hasEnemy2);
 
                 if (!hasEnemy1 && !hasEnemy2)
                 {
                     x = socketC.x;
                     y = socketC.y + offset;
 
-                    if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite,  out bool hasEnemy))
+                    if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out bool hasEnemy))
                     {
                         if (!hasEnemy && !pieceData.ValueRO.isMovedOnce)
                         {
                             y += offset;
-                            TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite,  out hasEnemy);
+                            TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out hasEnemy);
                         }
                     }
                 }
@@ -691,17 +609,17 @@ public partial class PlayerTurnSystem : SystemBase
                 break;
             case ChessType.Knight:
 
-                TryAddTurn(socketC.x + 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite,  out bool _);
-                TryAddTurn(socketC.x + 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite,  out bool _);
+                TryAddTurn(socketC.x + 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x + 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x - 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite,  out bool _);
-                TryAddTurn(socketC.x - 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite,  out bool _);
+                TryAddTurn(socketC.x - 2, socketC.y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x - 2, socketC.y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x - 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite,  out bool _);
-                TryAddTurn(socketC.x + 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite,  out bool _);
+                TryAddTurn(socketC.x - 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x + 1, socketC.y + 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
-                TryAddTurn(socketC.x + 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite,  out bool _);
-                TryAddTurn(socketC.x - 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite,  out bool _);
+                TryAddTurn(socketC.x + 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
+                TryAddTurn(socketC.x - 1, socketC.y - 2, true, true, boardAspect, turnPositions, isWhite, out bool _);
 
                 break;
             case ChessType.Queen:
@@ -728,70 +646,10 @@ public partial class PlayerTurnSystem : SystemBase
                 TryAddTurn(x - 1, y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
                 TryAddTurn(x + 1, y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
                 break;
-                
+
             default:
                 break;
         }
-    }
-
-    void ShowSelectedAndTurns(EntityCommandBuffer ecb)
-    {
-        if (SystemAPI.HasComponent<ChessSocketC>(m_LastSelectedSocket))
-        {
-            var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(m_LastSelectedSocket);
-            ecb.AddComponent<ChessSocketSelectedT>(m_LastSelectedSocket);
-            highlight.ShowSelected(ecb);
-        }
-
-        if (HasSelectedPiece())
-        {
-            var steps = GetSelectedPossibleSteps();
-            foreach (var turn in steps)
-            {
-                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketC.socketE);
-
-                if (turn.hasEnemy)
-                {
-                    highlight.ShowEnemy(ecb);
-                }
-                else
-                {
-                    highlight.ShowMovePos(ecb);
-                }
-            }
-        }
-    }
-
-    public Entity Raycast(float3 RayFrom, float3 RayTo)
-    {
-        // Set up Entity Query to get PhysicsWorldSingleton
-        // If doing this in SystemBase or ISystem, call GetSingleton<PhysicsWorldSingleton>()/SystemAPI.GetSingleton<PhysicsWorldSingleton>() directly.
-        EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp).WithAll<PhysicsWorldSingleton>();
-
-        EntityQuery singletonQuery = World.DefaultGameObjectInjectionWorld.EntityManager.CreateEntityQuery(builder);
-        var collisionWorld = singletonQuery.GetSingleton<PhysicsWorldSingleton>().CollisionWorld;
-        singletonQuery.Dispose();
-
-        RaycastInput input = new RaycastInput()
-        {
-            Start = RayFrom,
-            End = RayTo,
-            Filter = new CollisionFilter()
-            {
-                BelongsTo = ~0u,
-                CollidesWith = ~0u, // all 1s, so all layers, collide with everything
-                GroupIndex = 0
-            }
-        };
-
-        Unity.Physics.RaycastHit hit = new Unity.Physics.RaycastHit();
-        bool haveHit = collisionWorld.CastRay(input, out hit);
-        if (haveHit)
-        {
-            return hit.Entity;
-        }
-
-        return Entity.Null;
     }
 
     bool IsValidXY(int x, int y)

@@ -6,13 +6,12 @@ using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
 
-
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct ServerSetupBoardSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
-
+       
     }
 
     public void OnUpdate(ref SystemState state)
@@ -20,6 +19,7 @@ public partial struct ServerSetupBoardSystem : ISystem
         bool isBoardCreated = SystemAPI.HasSingleton<ChessBoardInstanceT>();
         if (!isBoardCreated)
         {
+            Debug.Log("[Server] create board");
             //RemovePrevBoard(ref state);
             SpawnNewBoard(ref state);
         }
@@ -29,10 +29,6 @@ public partial struct ServerSetupBoardSystem : ISystem
     {
         var persistentData = SystemAPI.GetSingleton<ChessBoardPersistentC>();
         var boardE = state.EntityManager.Instantiate(persistentData.chessBoardPrefab);
-        state.EntityManager.AddComponent<ChessBoardInstanceT>(boardE);
-        state.EntityManager.AddComponent<ChessBoardTurnC>(boardE);
-        state.EntityManager.AddBuffer<ChessBoardBlackPiecesBuffer>(boardE);
-        state.EntityManager.AddBuffer<ChessBoardWhitePiecesBuffer>(boardE);
 
         SetupSokets(ref state, boardE, in persistentData);
         SpawnPieces(ref state, boardE, in persistentData);
