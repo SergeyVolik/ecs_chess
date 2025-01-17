@@ -23,6 +23,9 @@ public class ChessBoardAuthoring : MonoBehaviour
     public ChessPieces black;
     public ChessPieces white;
 
+    public Transform whitePlayerCameraPos;
+    public Transform blackPlayerCameraPos;
+
     public class Baker : Baker<ChessBoardAuthoring>
     {
         public override void Bake(ChessBoardAuthoring authoring)
@@ -35,7 +38,9 @@ public class ChessBoardAuthoring : MonoBehaviour
                 socketPrefab = GetEntity(authoring.socketPrefab, TransformUsageFlags.Dynamic),
                 chessBoardPrefab = GetEntity(authoring.chessBoard, TransformUsageFlags.Dynamic),
                 blackPiecesPrefabs = GetPrefabs(authoring.black),
-                whitePiecesPrefabs = GetPrefabs(authoring.white)
+                whitePiecesPrefabs = GetPrefabs(authoring.white),
+                blackCameraPos = GetEntity(authoring.blackPlayerCameraPos, TransformUsageFlags.Dynamic),
+                whiteCameraPos = GetEntity(authoring.whitePlayerCameraPos, TransformUsageFlags.Dynamic),
             });
         }
 
