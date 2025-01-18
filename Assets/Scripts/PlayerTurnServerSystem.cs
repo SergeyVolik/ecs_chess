@@ -24,22 +24,27 @@ public partial class PlayerTurnServerSystem : SystemBase
     protected override void OnUpdate()
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
-
         InitBoard(ecb);
-
-        var query = SystemAPI.QueryBuilder().WithAll<ReceiveRpcCommandRequest, MoveChessRPC>().Build();
+        ecb.Playback(EntityManager);
+        var query = SystemAPI.QueryBuilder().WithAll<MoveChess>().Build();
 
         if (!query.IsEmpty)
         {
+            var ecb1 = new EntityCommandBuffer(Allocator.Temp);
+           
             var requests = query.ToEntityArray(Allocator.Temp);
-            ecb.DestroyEntity(query, EntityQueryCaptureMode.AtPlayback);
+            ecb1.DestroyEntity(query, EntityQueryCaptureMode.AtPlayback);
             var board = GetBoard();
-            var rpc = SystemAPI.GetComponent<MoveChessRPC>(requests[0]);
+            var rpc = SystemAPI.GetComponent<MoveChess>(requests[0]);
             var moveFrom = board.GetSocket(rpc.fromIndex).socketE;
             var moveTo = board.GetSocket(rpc.toIndex).socketE;
 
-            TryMoveChess(moveFrom, moveTo, ecb);
+            bool moved = TryMoveChess(moveFrom, moveTo, ecb1);
 
+            Debug.Log($"[Server] move chess: {moved}");
+            ecb1.Playback(EntityManager);
+
+            board = GetBoard();
             RecalculatePossibleStepsForBoard();
 
             var king = board.GetCurrentKing();
@@ -79,7 +84,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         }
 
 
-        ecb.Playback(EntityManager);
+      
     }
 
     bool IsGameFinishedEnd()
@@ -358,7 +363,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         }
 
-        Debug.Log($"reset from {prevMoveData.fromPos} to {prevMoveData.toPos}");
+        //Debug.Log($"reset from {prevMoveData.fromPos} to {prevMoveData.toPos}");
     }
 
     private void MovePieceToSocketPosition(Entity pieceE, Entity destionationSocket)
@@ -369,7 +374,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         prevMoveData.toPos = SystemAPI.GetComponent<LocalTransform>(destionationSocket).Position;
 
         ltw.ValueRW.Position = prevMoveData.toPos;
-        Debug.Log($"move from {prevMoveData.fromPos} to {prevMoveData.toPos}");
+        //Debug.Log($"move from {prevMoveData.fromPos} to {prevMoveData.toPos}");
     }
 
     bool IsCorrectSocketToMove(Entity moveFrom, Entity moveTo)
@@ -388,23 +393,20 @@ public partial class PlayerTurnServerSystem : SystemBase
         return false;
     }
 
-    bool TryMoveChess(Entity moveFrom, Entity moveTo, EntityCommandBuffer ecb)
+    bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb)
     {
-        if (!SystemAPI.HasBuffer<ChessPiecePossibleSteps>(moveFrom))
-            return false;
-
-        if (!IsCorrectSocketToMove(moveFrom, moveTo))
+        if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
         {
             return false;
         }
 
-        if (HasPieceInSlot(moveTo))
+        if (HasPieceInSlot(moveToSocket))
         {
-            var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveTo);
+            var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveToSocket);
             ecb.DestroyEntity(toDestory.pieceE);
         }
 
-        var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFrom);
+        var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket);
         var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
 
         var boardAspect = GetBoard();
@@ -412,10 +414,10 @@ public partial class PlayerTurnServerSystem : SystemBase
         //pawn promotion
         if (pieceData.chessType == ChessType.Pawn)
         {
-            MoveFromToSocket(moveFrom, moveTo);
+            MoveFromToSocket(moveFromSocket, moveToSocket);
             var color = pieceData.color;
 
-            if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(moveTo)))
+            if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(moveToSocket)))
             {
                 var prefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
 
@@ -431,9 +433,9 @@ public partial class PlayerTurnServerSystem : SystemBase
                     color = color,
                     isMovedOnce = true
                 });
-                ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(moveTo));
-                ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(moveTo));
-                ecb.AddComponent<ChessSocketPieceLinkC>(moveTo, new ChessSocketPieceLinkC
+                ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(moveToSocket));
+                ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(moveToSocket));
+                ecb.AddComponent<ChessSocketPieceLinkC>(moveToSocket, new ChessSocketPieceLinkC
                 {
                     pieceE = instace
                 });
@@ -448,7 +450,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
             var kingPiece = SystemAPI.GetComponent<ChessPieceC>(kingE);
 
-            if (!kingPiece.isMovedOnce && !HasPieceInSlot(moveTo))
+            if (!kingPiece.isMovedOnce && !HasPieceInSlot(moveToSocket))
             {
                 var kingSocket = SystemAPI.GetComponent<ChessSocketC>(kingE);
                 var pieceSocket = SystemAPI.GetComponent<ChessSocketC>(pieces.pieceE);
@@ -456,7 +458,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 var kingSocketLeftE = boardAspect.GetSocket(kingSocket.x - 1, kingSocket.y).socketE;
                 var kingSocketRightE = boardAspect.GetSocket(kingSocket.x + 1, kingSocket.y).socketE;
 
-                if (moveTo == kingSocketLeftE || moveTo == kingSocketRightE)
+                if (moveToSocket == kingSocketLeftE || moveToSocket == kingSocketRightE)
                 {
                     NativeList<Entity> checkSockets = new NativeList<Entity>(Allocator.Temp);
 
@@ -495,11 +497,11 @@ public partial class PlayerTurnServerSystem : SystemBase
                     }
                 }
             }
-            MoveFromToSocket(moveFrom, moveTo);
+            MoveFromToSocket(moveFromSocket, moveToSocket);
         }
         else
         {
-            MoveFromToSocket(moveFrom, moveTo);
+            MoveFromToSocket(moveFromSocket, moveToSocket);
         }
 
         boardAspect.NextTurn();

@@ -8,7 +8,7 @@ using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
 
-public struct MoveChessRPC : IRpcCommand
+public struct MoveChess : IComponentData
 {
     public int fromIndex;
     public int toIndex;
@@ -55,7 +55,7 @@ public partial class PlayerInputClientSystem : SystemBase
             var rpc = new RaycastChessRpc
             {
                 rayFrom = ray.origin,
-                rayTo = ray.origin + ray.direction * 200f
+                rayTo = ray.origin + ray.direction * 200f,
             };
             var request = EntityManager.CreateEntity();
             EntityManager.AddComponent<SendRpcCommandRequest>(request);
@@ -83,27 +83,12 @@ public partial class PlayerSelectOrMoveSystem : SystemBase
     {
 
         var quety = SystemAPI.QueryBuilder().WithAll<RaycastChessRpc>().Build();
+
         if (quety.IsEmpty)
             return;
 
         var data = quety.GetSingleton<RaycastChessRpc>();
         EntityManager.DestroyEntity(quety);
-
-        var localPlayerEntity = SystemAPI.GetSingletonEntity<NetworkId>();
-
-        if (!SystemAPI.HasComponent<ChessPlayerC>(localPlayerEntity))
-        {
-            return;
-        }
-
-        var turn = SystemAPI.GetSingleton<ChessBoardTurnC>();
-
-        var playerData = SystemAPI.GetComponent<ChessPlayerC>(localPlayerEntity);
-
-        bool turnIsWhite = turn.turnColor == PieceColor.White;
-
-        if (turnIsWhite != playerData.white)
-            return;
 
         var ecb = new EntityCommandBuffer(Allocator.Temp);
         bool canMove = false;
@@ -138,13 +123,11 @@ public partial class PlayerSelectOrMoveSystem : SystemBase
             var board = GetBoard();
 
             var requestE = ecb.CreateEntity();
-            ecb.AddComponent<SendRpcCommandRequest>(requestE);
-            ecb.AddComponent<MoveChessRPC>(requestE, new MoveChessRPC
+            ecb.AddComponent<MoveChess>(requestE, new MoveChess
             {
                 fromIndex = board.IndexOf(m_LastSelectedSocket),
-                toIndex = board.IndexOf(raycastedSocketE)
+                toIndex = board.IndexOf(raycastedSocketE),
             });
-            Debug.Log("[Client] move chess");
             ClearSelection(ecb);
         }
         else if (isSelected)
