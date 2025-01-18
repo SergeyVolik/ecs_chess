@@ -79,14 +79,14 @@ public partial struct ServerSetupBoardSystem : ISystem
         var whitePrefabs = bC.whitePiecesPrefabs;
         var blackPrefabs = bC.blackPiecesPrefabs;
 
-        //SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
-        //SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
-        //SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
-        //SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
-        //SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
+        SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
+        SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
+        SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
+        SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), ecb, blackPrefabs.king, boardE);
 
-        //SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
+        SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
         SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), ecb, whitePrefabs.rook, boardE);
         SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
         SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
