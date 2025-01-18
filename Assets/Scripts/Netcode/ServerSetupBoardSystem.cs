@@ -20,7 +20,6 @@ public partial struct ServerSetupBoardSystem : ISystem
         if (!isBoardCreated)
         {
             Debug.Log("[Server] create board");
-            //RemovePrevBoard(ref state);
             SpawnNewBoard(ref state);
         }
     }
@@ -33,28 +32,6 @@ public partial struct ServerSetupBoardSystem : ISystem
         SetupSokets(ref state, boardE, in persistentData);
         SpawnPieces(ref state, boardE, in persistentData);
     }
-
-    //public void RemovePrevBoard(ref SystemState state)
-    //{
-    //    var ecb = new EntityCommandBuffer(Allocator.Temp);
-
-    //    foreach (var (c, e) in SystemAPI.Query<ChessSocketHighlightInstanceC>().WithEntityAccess())
-    //    {
-    //        ecb.DestroyEntity(c.entity);
-    //    }
-
-    //    foreach (var (c, e) in SystemAPI.Query<ChessSocketC>().WithEntityAccess())
-    //    {
-    //        ecb.DestroyEntity(e);
-    //    }
-
-    //    foreach (var (c, e) in SystemAPI.Query<ChessBoardInstanceT>().WithEntityAccess())
-    //    {
-    //        ecb.DestroyEntity(e);
-    //    }
-
-    //    ecb.Playback(state.EntityManager);
-    //}
 
     public void SetupSokets(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
     {
@@ -102,21 +79,19 @@ public partial struct ServerSetupBoardSystem : ISystem
         var whitePrefabs = bC.whitePiecesPrefabs;
         var blackPrefabs = bC.blackPiecesPrefabs;
 
-
-        SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
-        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
-        SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
-        SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
-        SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
+        //SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
+        //SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
+        //SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
+        //SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
+        //SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), ecb, blackPrefabs.king, boardE);
 
-        SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
+        //SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
         SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), ecb, whitePrefabs.rook, boardE);
         SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
         SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
         SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
         SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), ecb, whitePrefabs.king, boardE);
-
 
         ecb.Playback(state.EntityManager);
 

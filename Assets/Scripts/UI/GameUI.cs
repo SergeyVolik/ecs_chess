@@ -7,6 +7,7 @@ public class GameUI : BaseGameUI
 
     protected override void Awake()
     {
+        base.Awake();      
         leaveButton.onClick.AddListener(() =>
         {
             ConnectionManager.Instance.Disconnect();

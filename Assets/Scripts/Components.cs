@@ -35,6 +35,7 @@ public struct ChessBoardInstanceT : IComponentData
     [GhostField] public Entity blackKingE;
 
     [GhostField] public bool inited;
+    internal bool blockInput;
 }
 public struct ChessBoardStepsInitedT : IComponentData { }
 
