@@ -1,26 +1,46 @@
+using UnityEngine;
 using UnityEngine.UI;
 
 public class MenuUI : BaseGameUI
 {
     public Button startServerButton;
     public Button connectToServerButton;
+    public Button pasteButton;
+    
+    public TMPro.TMP_InputField codeInput;
+    public BaseGameUI gameUI;
+    public CreateGameUI createGameUI;
 
-    public GameUI gameUI;
     protected override void Awake()
     {
         base.Awake();
-        startServerButton.onClick.AddListener(() =>
+
+        pasteButton.onClick.AddListener(() =>
         {
-            ConnectionManager.Instance.CreateClientServer();
-            Hide();
-            gameUI.Show();
+            codeInput.text = GUIUtility.systemCopyBuffer;
         });
 
-        connectToServerButton.onClick.AddListener(() =>
+        startServerButton.onClick.AddListener(() =>
         {
-            ConnectionManager.Instance.ConnectToServer();
             Hide();
-            gameUI.Show();
+            createGameUI.CreateGame();
+        });
+
+        connectToServerButton.onClick.AddListener(async () =>
+        {
+            connectToServerButton.interactable = false;
+            pasteButton.interactable = false;
+            startServerButton.interactable = false;
+            codeInput.interactable = false;
+
+            await ConnectionManager.Instance.ConnectToServer(codeInput.text, (result) => {
+                codeInput.interactable = true;
+                connectToServerButton.interactable = true;
+                pasteButton.interactable = true;
+                startServerButton.interactable = true;
+                Hide();
+                gameUI.Show();
+            });
         });
     }
 }
