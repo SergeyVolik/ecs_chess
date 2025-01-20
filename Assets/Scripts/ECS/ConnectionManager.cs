@@ -76,14 +76,15 @@ public class ConnectionManager : MonoBehaviour
             m_Role = Role.Client;
             ServerData = PlayerRelayData(m_JoinAllocation);
             StartCoroutine(ConnectECS(result));
-           
+
         }
         catch (Exception ex)
         {
             Debug.LogException(ex);
-            result?.Invoke(Result.Failed);           
+            result?.Invoke(Result.Failed);
         }
     }
+
     static RelayServerData PlayerRelayData(JoinAllocation allocation, string connectionType = "dtls")
     {
         // Select endpoint based on desired connectionType
@@ -150,7 +151,7 @@ public class ConnectionManager : MonoBehaviour
         {
             Debug.LogException(ex);
             result?.Invoke(Result.Failed);
-        }       
+        }
     }
 
     /// <summary>
@@ -192,7 +193,7 @@ public class ConnectionManager : MonoBehaviour
 
         // Important: Once the allocation is created, you have ten seconds to BIND
         m_HostAllocation = await RelayService.Instance.CreateAllocationAsync(2, null);
-        
+
         Debug.Log($"Host Allocation ID: {m_HostAllocation.AllocationId}, region: {m_HostAllocation.Region}");
     }
 
@@ -250,9 +251,9 @@ public class ConnectionManager : MonoBehaviour
                     ServerWorld.Update();
                 }
             }
-          
+
             using var query = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-            query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(ServerData.Endpoint);
+            query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(NetworkEndpoint.Parse("127.0.0.1", 26999));
         }
 
         if (ClientWorld != null)
@@ -274,9 +275,19 @@ public class ConnectionManager : MonoBehaviour
             }
 
             using var query = ClientWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-            query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(ClientWorld.EntityManager, ServerData.Endpoint);
+
+            NetworkEndpoint endPoint = NetworkEndpoint.Parse("127.0.0.1", 26999);
+
+            endPoint = ServerData.Endpoint;
+            query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(ClientWorld.EntityManager, NetworkEndpoint.Parse("127.0.0.1", 26999));
         }
 
         result?.Invoke(Result.Success);
+    }
+
+    internal void EnableInput()
+    {
+        var e = ClientWorld.EntityManager.CreateEntity();
+        ClientWorld.EntityManager.AddComponent<EnablePlayerInputT>(e);
     }
 }

@@ -13,8 +13,11 @@ public struct RaycastChessRpc : IRpcCommand
     public float3 rayFrom;
     public float3 rayTo;
 }
+public struct EnablePlayerInputT : IRpcCommand
+{
 
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+}
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public partial class PlayerInputClientSystem : SystemBase
 {
     private Camera m_Camera;
@@ -23,6 +26,7 @@ public partial class PlayerInputClientSystem : SystemBase
         base.OnCreate();
         m_Camera = Camera.main;
         RequireForUpdate<ChessBoardInstanceT>();
+        RequireForUpdate<EnablePlayerInputT>();
     }
 
     protected override void OnUpdate()

@@ -34,12 +34,16 @@ public class MenuUI : BaseGameUI
             codeInput.interactable = false;
 
             await ConnectionManager.Instance.ConnectToServer(codeInput.text, (result) => {
-                codeInput.interactable = true;
-                connectToServerButton.interactable = true;
-                pasteButton.interactable = true;
-                startServerButton.interactable = true;
-                Hide();
-                gameUI.Show();
+                if (result == Result.Success)
+                {
+                    codeInput.interactable = true;
+                    connectToServerButton.interactable = true;
+                    pasteButton.interactable = true;
+                    startServerButton.interactable = true;
+                    Hide();
+                    gameUI.Show();
+                    ConnectionManager.Instance.EnableInput();
+                }
             });
         });
     }

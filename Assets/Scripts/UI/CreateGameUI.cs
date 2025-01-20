@@ -29,6 +29,7 @@ public class CreateGameUI : BaseGameUI
 
         goToGameButton.onClick.AddListener(() =>
         {
+            ConnectionManager.Instance.EnableInput();
             gameUI.Show();
             Hide();
         });
@@ -41,6 +42,7 @@ public class CreateGameUI : BaseGameUI
         copyCode.interactable = false;
         goToGameButton.interactable = false;
         returnButton.interactable = false;
+
         ConnectionManager.Instance.CreateClientServer((result) => {
 
             returnButton.interactable = true;
