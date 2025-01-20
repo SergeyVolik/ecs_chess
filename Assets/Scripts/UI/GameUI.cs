@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine.UI;
 
 public class GameUI : BaseGameUI
@@ -5,9 +6,14 @@ public class GameUI : BaseGameUI
     public Button leaveButton;
     public MenuUI menuUI;
 
+    public static GameUI Instance { get; private set; }
+
+    public TextMeshProUGUI yourTurnText;
+
     protected override void Awake()
     {
-        base.Awake();      
+        base.Awake();
+        Instance = this;
         leaveButton.onClick.AddListener(() =>
         {
             ConnectionManager.Instance.Disconnect();

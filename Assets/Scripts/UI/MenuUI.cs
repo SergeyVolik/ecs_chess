@@ -21,30 +21,54 @@ public class MenuUI : BaseGameUI
         });
 
         startServerButton.onClick.AddListener(() =>
-        {
-            Hide();
-            createGameUI.CreateGame();
+        {       
+            ConnectionManager.Instance.CreateClientServer((result) => {
+
+                DisableInput();
+                if (result == Result.Failed)
+                {
+                    Debug.Log("Fail to create Game");
+                    EnableInput();
+                    return;
+                }
+
+                EnableInput();
+                Hide();
+                createGameUI.Show(ConnectionManager.Instance.JoinCode);
+            });         
         });
 
         connectToServerButton.onClick.AddListener(async () =>
         {
-            connectToServerButton.interactable = false;
-            pasteButton.interactable = false;
-            startServerButton.interactable = false;
-            codeInput.interactable = false;
+            DisableInput();
 
-            await ConnectionManager.Instance.ConnectToServer(codeInput.text, (result) => {
+            await ConnectionManager.Instance.ConnectToServer(codeInput.text, (result) =>
+            {
+                EnableInput();
+
                 if (result == Result.Success)
                 {
-                    codeInput.interactable = true;
-                    connectToServerButton.interactable = true;
-                    pasteButton.interactable = true;
-                    startServerButton.interactable = true;
                     Hide();
                     gameUI.Show();
                     ConnectionManager.Instance.EnableInput();
                 }
             });
         });
+    }
+
+    private void EnableInput()
+    {
+        codeInput.interactable = true;
+        connectToServerButton.interactable = true;
+        pasteButton.interactable = true;
+        startServerButton.interactable = true;
+    }
+
+    private void DisableInput()
+    {
+        connectToServerButton.interactable = false;
+        pasteButton.interactable = false;
+        startServerButton.interactable = false;
+        codeInput.interactable = false;
     }
 }

@@ -35,27 +35,10 @@ public class CreateGameUI : BaseGameUI
         });
     }
 
-    public void CreateGame()
+    public void Show(string code)
     {
         Show();
-        codeText.text = "Creating Game...";
-        copyCode.interactable = false;
-        goToGameButton.interactable = false;
-        returnButton.interactable = false;
 
-        ConnectionManager.Instance.CreateClientServer((result) => {
-
-            returnButton.interactable = true;
-
-            if (result == Result.Failed)
-            {
-                Debug.Log("Fail to create Game");
-                return;
-            }
-          
-            codeText.text = ConnectionManager.Instance.JoinCode;
-            copyCode.interactable = true;
-            goToGameButton.interactable = true;
-        });       
+        codeText.text = code;     
     }
 }

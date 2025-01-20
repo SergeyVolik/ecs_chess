@@ -11,7 +11,7 @@ public partial struct ServerSetupBoardSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
-       
+        state.RequireForUpdate<ChessBoardPersistentC>();
     }
 
     public void OnUpdate(ref SystemState state)
