@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bac2a03c64dd314ea3f1e920e031b98, type: 3}
+  m_Name: kill Audio Sfx_SO 2
+  m_EditorClassIdentifier: 
+  sfx:
+    clip: {fileID: 8300000, guid: d8d04c6f80a1140db85ede568dab1f51, type: 3}
+    volume: 1
+    pitch: 1
+    mixer: {fileID: 7316897337071345589, guid: a61c1f91a6bff034db9e3db0c750cc1d, type: 2}

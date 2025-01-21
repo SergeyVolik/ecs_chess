@@ -6,6 +6,7 @@ public enum SfxType
 {
     Move = 0,
     Select = 1,
+    Kill = 2,
 }
 
 public class AudioManager : MonoBehaviour
@@ -25,7 +26,7 @@ public class AudioManager : MonoBehaviour
         sfxes[(int)type].sfx.Play(m_AudioSource);
     }
 
-    public void PlaySfxRequest(SfxType type, EntityCommandBuffer ecb)
+    public void PlayRequest(SfxType type, EntityCommandBuffer ecb)
     {
         var e = ecb.CreateEntity();
         ecb.AddComponent<SendRpcCommandRequest>(e);

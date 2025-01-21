@@ -34,7 +34,7 @@ public partial class ClientSetupPlayerSystem : SystemBase
                 });
             }
 
-            var camera = CameraData.Instance.GetCameraTarget();
+            var camera = CameraController.Instance.GetCameraTarget();
             camera.position = cameraLtw.Position;
             camera.rotation = cameraLtw.Rotation;
             Debug.Log("[Client] setup camera");

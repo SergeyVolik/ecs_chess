@@ -52,7 +52,7 @@ public partial class PlayerInputClientSystem : SystemBase
             if (turnIsWhite != playerData.isWhite)
                 return;
 
-            var ray = CameraData.Instance.GetCamera().ScreenPointToRay(Input.mousePosition);
+            var ray = CameraController.Instance.GetCamera().ScreenPointToRay(Input.mousePosition);
             var rpc = new RaycastChessRpc
             {
                 rayFrom = ray.origin,

@@ -56,12 +56,8 @@ public partial class PlayerTurnServerSystem : SystemBase
         var moveFrom = board.GetSocket(moveData.fromIndex).socketE;
         var moveTo = board.GetSocket(moveData.toIndex).socketE;
 
-        bool moved = TryMoveChess(moveFrom, moveTo, ecb1);
+        bool moved = TryMoveChess(moveFrom, moveTo, ecb1, out bool killed);
 
-        if (moved)
-        {
-            AudioManager.Instance.PlaySfxRequest(SfxType.Move, ecb1);
-        }
         Debug.Log($"[Server] move chess: {moved}");
         ecb1.Playback(EntityManager);
 
@@ -276,7 +272,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                     if (state.isWhite == pieceData.isWhite)
                     {
                         isSelected = true;                     
-                        AudioManager.Instance.PlaySfxRequest(SfxType.Select, ecb);
+                        AudioManager.Instance.PlayRequest(SfxType.Select, ecb);
                         ClearSelection(ecb);
                         m_LastSelectedSocket = raycastedSocketE;
                         m_LastSelectedPieceE = pieceE;
@@ -634,8 +630,9 @@ public partial class PlayerTurnServerSystem : SystemBase
         return false;
     }
 
-    bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb)
+    bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb, out bool killed)
     {
+        killed = false;
         if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
         {
             return false;
@@ -645,6 +642,9 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveToSocket);
             ecb.DestroyEntity(toDestory.pieceE);
+            killed = true;
+            AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
+            PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
 
             if (GetOponentEntity(out Entity oponent))
             {
@@ -655,6 +655,11 @@ public partial class PlayerTurnServerSystem : SystemBase
                     TargetConnection = oponent
                 });
             }
+        }
+
+        if (!killed)
+        {
+            AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
         }
 
         var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket);

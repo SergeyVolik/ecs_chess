@@ -11,7 +11,7 @@ public partial class CameraShakeClientSystem : SystemBase
         var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
         foreach (var (rpc, e) in SystemAPI.Query<ShakeCameraRpc>().WithAll<ReceiveRpcCommandRequest>().WithEntityAccess())
         {
-            CameraData.Instance.ShakeCamera();
+            CameraController.Instance.ShakeCamera();
             ecb.DestroyEntity(e);
         }
         ecb.Playback(EntityManager);
