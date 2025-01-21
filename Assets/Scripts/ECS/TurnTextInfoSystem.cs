@@ -29,7 +29,7 @@ public partial class TurnTextInfoSystem : SystemBase
 
         var turn = SystemAPI.GetSingleton<ChessBoardTurnC>();
 
-        bool isYourStep = turn.turnColor == PieceColor.White && localPlayer.white;
+        bool isYourStep = turn.isWhite == localPlayer.isWhite;
 
         var canvasTransform = GameUI.Instance.yourTurnText.transform.parent.transform;
         canvasTransform.gameObject.SetActive(isYourStep);

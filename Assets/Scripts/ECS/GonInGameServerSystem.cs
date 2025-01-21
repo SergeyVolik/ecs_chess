@@ -12,7 +12,7 @@ public struct SetupPlayerRPC : IRpcCommand
 
 public struct ChessPlayerC : IComponentData
 {
-    public bool white;
+    public bool isWhite;
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -42,7 +42,7 @@ public partial struct GonInGameServerSystem : ISystem
             bool hasBlack = false;
             foreach (var item in SystemAPI.Query<ChessPlayerC>())
             {
-                if (item.white)
+                if (item.isWhite)
                 {
                     hasWhite= true;
                 }
@@ -59,7 +59,7 @@ public partial struct GonInGameServerSystem : ISystem
                     isWhite = true
                 });
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
-                     white = true
+                     isWhite = true
                 });
                 Debug.Log($"[Server] go in game as white");
 
@@ -72,7 +72,7 @@ public partial struct GonInGameServerSystem : ISystem
                 });
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC
                 {
-                    white = false
+                    isWhite = false
                 });
                 Debug.Log($"[Server] go in game as white");
             }

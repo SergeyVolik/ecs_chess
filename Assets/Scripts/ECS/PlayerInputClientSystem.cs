@@ -20,11 +20,9 @@ public struct EnablePlayerInputT : IRpcCommand
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public partial class PlayerInputClientSystem : SystemBase
 {
-    private Camera m_Camera;
     protected override void OnCreate()
     {
         base.OnCreate();
-        m_Camera = Camera.main;
         RequireForUpdate<ChessBoardInstanceT>();
         RequireForUpdate<EnablePlayerInputT>();
     }
@@ -49,12 +47,12 @@ public partial class PlayerInputClientSystem : SystemBase
 
             var playerData = SystemAPI.GetComponent<ChessPlayerC>(localPlayerEntity);
 
-            bool turnIsWhite = turn.turnColor == PieceColor.White;
+            bool turnIsWhite = turn.isWhite;
 
-            if (turnIsWhite != playerData.white)
+            if (turnIsWhite != playerData.isWhite)
                 return;
 
-            var ray = m_Camera.ScreenPointToRay(Input.mousePosition);
+            var ray = CameraData.Instance.GetCamera().ScreenPointToRay(Input.mousePosition);
             var rpc = new RaycastChessRpc
             {
                 rayFrom = ray.origin,

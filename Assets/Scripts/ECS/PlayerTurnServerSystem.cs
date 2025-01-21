@@ -11,6 +11,8 @@ public struct EndGameRPC : IRpcCommand
     public bool isWhiteWin;
 }
 
+public struct ShakeCameraRpc : IComponentData { }
+
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial class PlayerTurnServerSystem : SystemBase
 {
@@ -79,7 +81,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                 foreach (var item1 in stepsBefore)
                 {
-                    MoveFromToSocket(socketC.socketE, item1.socketC.socketE);
+                    MovePieceFromToSocket(socketC.socketE, item1.socketC.socketE);
                     RecalculatePossibleStepsForOponent(board);
                     if (!IsKingUnderAttack(king, out _, out _))
                     {
@@ -95,19 +97,20 @@ public partial class PlayerTurnServerSystem : SystemBase
         }
 
         if (IsGameFinished())
-        {          
+        {
             board = GetBoard();
             board.instanceC.ValueRW.blockInput = true;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             var request = EntityManager.CreateEntity();
             ecb.AddComponent<SendRpcCommandRequest>(request);
-            ecb.AddComponent<EndGameRPC>(request,new EndGameRPC { 
-                  isWhiteWin = isWhiteStep,
+            ecb.AddComponent<EndGameRPC>(request, new EndGameRPC
+            {
+                isWhiteWin = isWhiteStep,
             });
             ecb.Playback(EntityManager);
             Debug.Log($"[Server] winner white:{isWhiteStep}");
         }
-        else 
+        else
         {
             Debug.Log($"[Server] game continue");
         }
@@ -199,8 +202,6 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     public Entity Raycast(float3 RayFrom, float3 RayTo)
     {
-        // Set up Entity Query to get PhysicsWorldSingleton
-        // If doing this in SystemBase or ISystem, call GetSingleton<PhysicsWorldSingleton>()/SystemAPI.GetSingleton<PhysicsWorldSingleton>() directly.
         EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp).WithAll<PhysicsWorldSingleton>();
 
         EntityQuery singletonQuery = World.DefaultGameObjectInjectionWorld.EntityManager.CreateEntityQuery(builder);
@@ -269,7 +270,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 {
                     var pieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(raycastedSocketE).pieceE;
                     var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
-                    if (state.turnColor == pieceData.color)
+                    if (state.isWhite == pieceData.isWhite)
                     {
                         isSelected = true;
 
@@ -495,7 +496,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         RecalculatePossibleSteps(board, board.GetWhiteKing(), board.GetWhitePieces());
     }
 
-    private void MoveFromToSocket(Entity fromSocket, Entity toSocket)
+    private void MovePieceFromToSocket(Entity fromSocket, Entity toSocket)
     {
         var toPiece = MovePieceToSocketData(fromSocket, toSocket);
         MovePieceToSocketPosition(toPiece, toSocket);
@@ -554,7 +555,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         SystemAPI.SetComponent<ChessPieceC>(pieceLinkFrom.pieceE, new ChessPieceC
         {
             chessType = pieceDataFrom.chessType,
-            color = pieceDataFrom.color,
+            isWhite = pieceDataFrom.isWhite,
             isMovedOnce = true
         });
 
@@ -611,6 +612,25 @@ public partial class PlayerTurnServerSystem : SystemBase
         return false;
     }
 
+
+
+    private bool GetOponentEntity(out Entity oponent)
+    {
+        oponent = Entity.Null;
+
+        var turn = SystemAPI.GetSingleton<ChessBoardTurnC>();
+        foreach (var (player, e) in SystemAPI.Query<ChessPlayerC>().WithAll<NetworkId>().WithEntityAccess())
+        {
+            if (turn.isWhite != player.isWhite)
+            {
+                oponent = e;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb)
     {
         if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
@@ -622,6 +642,16 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveToSocket);
             ecb.DestroyEntity(toDestory.pieceE);
+
+            if (GetOponentEntity(out Entity oponent))
+            {
+                var shakeEntity = ecb.CreateEntity();
+                ecb.AddComponent<ShakeCameraRpc>(shakeEntity);
+                ecb.AddComponent<SendRpcCommandRequest>(shakeEntity, new SendRpcCommandRequest
+                {
+                    TargetConnection = oponent
+                });
+            }
         }
 
         var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket);
@@ -632,14 +662,14 @@ public partial class PlayerTurnServerSystem : SystemBase
         //pawn promotion
         if (pieceData.chessType == ChessType.Pawn)
         {
-            MoveFromToSocket(moveFromSocket, moveToSocket);
-            var color = pieceData.color;
+            MovePieceFromToSocket(moveFromSocket, moveToSocket);
+            var isWhite = pieceData.isWhite;
 
-            if (boardAspect.IsBoardEnd(color, boardAspect.IndexOf(moveToSocket)))
+            if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
             {
                 var prefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
 
-                var queenPrefab = color == PieceColor.White ?
+                var queenPrefab = isWhite == true ?
                     prefabs.whitePiecesPrefabs.queen :
                    prefabs.blackPiecesPrefabs.queen;
 
@@ -648,9 +678,10 @@ public partial class PlayerTurnServerSystem : SystemBase
                 ecb.SetComponent<ChessPieceC>(instace, new ChessPieceC
                 {
                     chessType = ChessType.Queen,
-                    color = color,
+                    isWhite = isWhite,
                     isMovedOnce = true
                 });
+
                 ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(moveToSocket));
                 ecb.SetComponent<LocalTransform>(instace, SystemAPI.GetComponent<LocalTransform>(moveToSocket));
                 ecb.AddComponent<ChessSocketPieceLinkC>(moveToSocket, new ChessSocketPieceLinkC
@@ -662,7 +693,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         //castling
         else if (pieceData.chessType == ChessType.Rook && !pieceData.isMovedOnce)
         {
-            bool isWhite = pieceData.color == PieceColor.White;
+            bool isWhite = pieceData.isWhite;
             var kingE = isWhite ?
                 boardAspect.instanceC.ValueRO.whiteKingE : boardAspect.instanceC.ValueRO.blackKingE;
 
@@ -711,15 +742,15 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                     if (!isUnderAttack && checkSockets.Length != 0)
                     {
-                        MoveFromToSocket(checkSockets[0], checkSockets[2]);
+                        MovePieceFromToSocket(checkSockets[0], checkSockets[2]);
                     }
                 }
             }
-            MoveFromToSocket(moveFromSocket, moveToSocket);
+            MovePieceFromToSocket(moveFromSocket, moveToSocket);
         }
         else
         {
-            MoveFromToSocket(moveFromSocket, moveToSocket);
+            MovePieceFromToSocket(moveFromSocket, moveToSocket);
         }
 
         boardAspect.NextTurn();
@@ -774,8 +805,8 @@ public partial class PlayerTurnServerSystem : SystemBase
         var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceToMoveE);
         var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieceToMoveE);
 
-        bool isWhite = pieceData.ValueRO.color == PieceColor.White;
-        bool isCurrentPlayer = boardAspect.turnC.ValueRO.turnColor == pieceData.ValueRO.color;
+        bool isWhite = pieceData.ValueRO.isWhite;
+        bool isCurrentPlayer = boardAspect.turnC.ValueRO.isWhite == pieceData.ValueRO.isWhite;
         var turnPositions = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceToMoveE);
         turnPositions.Clear();
 
@@ -910,7 +941,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         if (hasPieceInSlot)
         {
             var data = GetPieceDataFromSlot(targetSocket.socketE);
-            bool isWhiteTarget = data.color == PieceColor.White;
+            bool isWhiteTarget = data.isWhite;
             if (canBeatEnemy && IsEnemy(isWhiteTarget, isWhiteSource))
             {
                 isCanMove = true;

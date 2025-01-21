@@ -49,7 +49,7 @@ public struct ChessGameStartT : IComponentData { }
 
 public struct ChessBoardTurnC : IComponentData
 {
-    [GhostField] public PieceColor turnColor;
+    [GhostField] public bool isWhite;
 }
 public struct ChessBoardWhitePiecesBuffer : IBufferElementData
 {
@@ -65,7 +65,7 @@ public struct ChessBoardBlackPiecesBuffer : IBufferElementData
 public struct ChessPieceC : IComponentData
 {
     [GhostField] public ChessType chessType;
-    [GhostField] public PieceColor color;
+    [GhostField] public bool isWhite;
     [GhostField] public bool isMovedOnce;
     [GhostField] public bool notActive;
     public override string ToString()

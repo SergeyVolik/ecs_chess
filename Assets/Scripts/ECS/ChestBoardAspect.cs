@@ -28,7 +28,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 
     public bool IsWhiteStep()
     {
-        return turnC.ValueRW.turnColor == PieceColor.White;
+        return turnC.ValueRW.isWhite;
     }
 
     public Entity GetCurrentKing()
@@ -111,10 +111,10 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return -1;
     }
 
-    public bool IsBoardEnd(PieceColor color, int index)
+    public bool IsBoardEnd(bool isWhite, int index)
     {
-        return color == PieceColor.Black && index >= 0 && index < GRID_Y
-            || color == PieceColor.White && index >= GRID_Y * GRID_X - GRID_Y && index < GRID_Y * GRID_X;
+        return isWhite == false && index >= 0 && index < GRID_Y
+            || isWhite == true && index >= GRID_Y * GRID_X - GRID_Y && index < GRID_Y * GRID_X;
     }
 
     private void GetRow(NativeList<ChessBoardInstanceSockets> sockets, int rowIndex)
@@ -225,6 +225,6 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 
     internal void NextTurn()
     {
-        turnC.ValueRW.turnColor = IsWhiteStep() ? PieceColor.Black : PieceColor.White;
+        turnC.ValueRW.isWhite = !turnC.ValueRW.isWhite;
     }
 }

@@ -21,7 +21,11 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent<ChessBoardInstanceT>(entity);
-            AddComponent<ChessBoardTurnC>(entity);
+            AddComponent<ChessBoardTurnC>(entity, new ChessBoardTurnC
+            {
+                isWhite = true
+            });
+
             AddBuffer<ChessBoardBlackPiecesBuffer>(entity);
             AddBuffer<ChessBoardWhitePiecesBuffer>(entity);
 

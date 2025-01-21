@@ -99,7 +99,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chessType: 3
-  color: 0
+  isWhite: 1
 --- !u!114 &7045507889630400808
 MonoBehaviour:
   m_ObjectHideFlags: 0

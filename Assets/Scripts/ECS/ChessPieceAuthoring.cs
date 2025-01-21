@@ -11,16 +11,10 @@ public enum ChessType
     King
 }
 
-public enum PieceColor
-{
-    White,
-    Black
-}
-
 public class ChessPieceAuthoring : MonoBehaviour
 {
     public ChessType chessType;
-    public PieceColor color;
+    public bool isWhite;
 
     public class Baker : Baker<ChessPieceAuthoring>
     {
@@ -30,7 +24,7 @@ public class ChessPieceAuthoring : MonoBehaviour
             AddComponent<ChessPieceC>(entity, new ChessPieceC
             {
                 chessType = authoring.chessType,
-                color = authoring.color,
+                isWhite = authoring.isWhite,
             });
             AddComponent<ChessSocketC>(entity);
             AddBuffer<ChessPiecePossibleSteps>(entity);

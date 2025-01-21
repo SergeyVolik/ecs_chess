@@ -5,7 +5,7 @@ using Unity.Transforms;
 using UnityEngine;
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-public partial class ClientSetupBoardSystem : SystemBase
+public partial class ClientSetupPlayerSystem : SystemBase
 {
     protected override void OnCreate() { }
 
@@ -22,7 +22,7 @@ public partial class ClientSetupBoardSystem : SystemBase
             {
                 cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.whiteCameraPos);
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
-                     white = true
+                     isWhite = true
                 });
             }
             else
@@ -30,13 +30,13 @@ public partial class ClientSetupBoardSystem : SystemBase
                 cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.blackCameraPos);
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC
                 {
-                    white = false
+                    isWhite = false
                 });
             }
 
-            var camera = Camera.main;
-            camera.transform.position = cameraLtw.Position;
-            camera.transform.rotation = cameraLtw.Rotation;
+            var camera = CameraData.Instance.GetCameraTarget();
+            camera.position = cameraLtw.Position;
+            camera.rotation = cameraLtw.Rotation;
             Debug.Log("[Client] setup camera");
             ecb.DestroyEntity(entity);
         }

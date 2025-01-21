@@ -101,7 +101,7 @@ public partial struct ServerSetupBoardSystem : ISystem
         var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceT>(boardE);
         foreach (var (c, e) in SystemAPI.Query<ChessPieceC>().WithEntityAccess())
         {
-            if (c.color == PieceColor.White)
+            if (c.isWhite)
             {
                 white.Add(new ChessBoardWhitePiecesBuffer { pieceE = e });
                 if (c.chessType == ChessType.King)
