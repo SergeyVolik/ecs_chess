@@ -58,6 +58,10 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         bool moved = TryMoveChess(moveFrom, moveTo, ecb1);
 
+        if (moved)
+        {
+            AudioManager.Instance.PlaySfxRequest(SfxType.Move, ecb1);
+        }
         Debug.Log($"[Server] move chess: {moved}");
         ecb1.Playback(EntityManager);
 
@@ -271,8 +275,8 @@ public partial class PlayerTurnServerSystem : SystemBase
                     var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
                     if (state.isWhite == pieceData.isWhite)
                     {
-                        isSelected = true;
-
+                        isSelected = true;                     
+                        AudioManager.Instance.PlaySfxRequest(SfxType.Select, ecb);
                         ClearSelection(ecb);
                         m_LastSelectedSocket = raycastedSocketE;
                         m_LastSelectedPieceE = pieceE;

@@ -4,7 +4,8 @@ using UnityEngine;
 
 public enum SfxType
 {
-    Move = 0
+    Move = 0,
+    Select = 1,
 }
 
 public class AudioManager : MonoBehaviour
