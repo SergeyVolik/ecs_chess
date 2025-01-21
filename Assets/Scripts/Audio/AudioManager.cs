@@ -1,5 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
+using Unity.Entities;
+using Unity.NetCode;
 using UnityEngine;
 
 public enum SfxType
@@ -22,5 +22,15 @@ public class AudioManager : MonoBehaviour
     public void PlaySfx(SfxType type)
     {
         sfxes[(int)type].sfx.Play(m_AudioSource);
+    }
+
+    public void PlaySfxRequest(SfxType type, EntityCommandBuffer ecb)
+    {
+        var e = ecb.CreateEntity();
+        ecb.AddComponent<SendRpcCommandRequest>(e);
+        ecb.AddComponent<PlaySfxRpc>(e, new PlaySfxRpc
+        {
+            Type = type
+        });
     }
 }

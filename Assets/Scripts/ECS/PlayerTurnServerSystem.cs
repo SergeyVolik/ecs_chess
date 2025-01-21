@@ -11,7 +11,6 @@ public struct EndGameRPC : IRpcCommand
     public bool isWhiteWin;
 }
 
-public struct ShakeCameraRpc : IComponentData { }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial class PlayerTurnServerSystem : SystemBase
