@@ -236,6 +236,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         return result;
     }
 
+    float3 lastMoveRaycastPos;
     void MoveOrSelect(out bool needMove, out MoveChess moveData)
     {
         moveData = new MoveChess { fromIndex = -1, toIndex = -1 };
@@ -285,12 +286,16 @@ public partial class PlayerTurnServerSystem : SystemBase
             var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
             EntityManager.DestroyEntity(moveQuery);
 
-            if (hasSelectedSocket && Raycast(moveRpc.rayFrom, moveRpc.rayTo, out var hit))
+            
+            if (hasSelectedSocket)
             {
+                if (Raycast(moveRpc.rayFrom, moveRpc.rayTo, out var hit))
+                    lastMoveRaycastPos = hit.Position;
+
                 var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
 
                 var pos = pieceLtw.ValueRO.Position;
-                var hitPos = hit.Position;
+                var hitPos = lastMoveRaycastPos;
                 hitPos.y = 1f;
                 float speed = 10f;
                 pieceLtw.ValueRW.Position = math.lerp(pos, hitPos, SystemAPI.Time.DeltaTime * speed);
@@ -301,13 +306,11 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         if (!dropQuery.IsEmpty)
         {
-            var dropRpc = dropQuery.GetSingleton<DropChessRpc>();
             EntityManager.DestroyEntity(dropQuery);
 
             if (hasSelectedSocket)
             {
                 var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
-
                 var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
 
                 var closest = FindClosestPossibleMove(pieceLtw.ValueRO.Position, turnForSelected);
@@ -342,11 +345,22 @@ public partial class PlayerTurnServerSystem : SystemBase
         Entity closest = Entity.Null;
         float closestDist = float.MaxValue;
 
+        var pos = SystemAPI.GetComponent<LocalTransform>(m_LastSelectedSocket);
+
+        var dist = math.distance(pos.Position, position);
+
+        if (dist < closestDist)
+        {
+            closest = m_LastSelectedSocket;
+            closestDist = dist;
+        }
+
+
         foreach (var item in steps)
         {
-            var pos = SystemAPI.GetComponent<LocalTransform>(item.socketC.socketE);
+            pos = SystemAPI.GetComponent<LocalTransform>(item.socketC.socketE);
 
-            var dist = math.distance(pos.Position, position);
+            dist = math.distance(pos.Position, position);
 
             if (dist < closestDist)
             {

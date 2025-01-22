@@ -60,26 +60,21 @@ public partial class PlayerInputClientSystem : SystemBase
 
             if (Input.GetMouseButton(0))
             {
-                var rpc1 = new MoveChessRpc
+                var rpc = new MoveChessRpc
                 {
                     rayFrom = ray.origin,
                     rayTo = ray.origin + ray.direction * 200f,
                 };
-                var request1 = EntityManager.CreateEntity();
-                EntityManager.AddComponent<SendRpcCommandRequest>(request1);
-                EntityManager.AddComponentData<MoveChessRpc>(request1, rpc1);
+                var request = EntityManager.CreateEntity();
+                EntityManager.AddComponent<SendRpcCommandRequest>(request);
+                EntityManager.AddComponentData<MoveChessRpc>(request, rpc);
             }
 
             if (Input.GetMouseButtonUp(0))
             {
-                var rpc1 = new DropChessRpc
-                {
-                    rayFrom = ray.origin,
-                    rayTo = ray.origin + ray.direction * 200f,
-                };
-                var request1 = EntityManager.CreateEntity();
-                EntityManager.AddComponent<SendRpcCommandRequest>(request1);
-                EntityManager.AddComponentData<DropChessRpc>(request1, rpc1);
+                var request = EntityManager.CreateEntity();
+                EntityManager.AddComponent<SendRpcCommandRequest>(request);
+                EntityManager.AddComponent<DropChessRpc>(request);
             }
         }
     }

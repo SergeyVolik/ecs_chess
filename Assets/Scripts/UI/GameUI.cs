@@ -9,6 +9,7 @@ public class GameUI : BaseGameUI
     public static GameUI Instance { get; private set; }
 
     public TextMeshProUGUI yourTurnText;
+    public TextMeshProUGUI timeText;
 
     protected override void Awake()
     {

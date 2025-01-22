@@ -58,8 +58,7 @@ public struct MoveChessRpc : IRpcCommand
 
 public struct DropChessRpc : IRpcCommand
 {
-    public float3 rayFrom;
-    public float3 rayTo;
+
 }
 
 
