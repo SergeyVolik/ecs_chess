@@ -58,17 +58,23 @@ public partial class PlayerTurnServerSystem : SystemBase
     private void ExecuteTransfomation()
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
+        bool transformed = false;
         foreach (var (rpc, e) in SystemAPI.Query<PieceTransformationRpc>().WithAll<ReceiveRpcCommandRequest>().WithEntityAccess())
         {
             if (requireTransformData.requireTransformation)
             {
                 TransformPiece(requireTransformData.socket, ecb, requireTransformData.pieceE, requireTransformData.isWhite, rpc.type);
-                NextTurn();
+                transformed = true;
                 requireTransformData = new SavedPieceTransformationData();
             }
             ecb.DestroyEntity(e);
         }
         ecb.Playback(EntityManager);
+
+        if (transformed)
+        {
+            NextTurn();
+        }
     }
 
     private void ExecuteMove(MoveChess moveData)
@@ -792,8 +798,6 @@ public partial class PlayerTurnServerSystem : SystemBase
                     });
                     ecb1.Playback(EntityManager);
                 }
-
-                //TransformPiece(moveToSocket, ecb, pieceToDestory, isWhite, transfType);
             }
         }
         //castling
@@ -870,19 +874,26 @@ public partial class PlayerTurnServerSystem : SystemBase
             prefabs.whitePiecesPrefabs :
            prefabs.blackPiecesPrefabs;
         Entity newPiecePrefab = queenPrefabs.queen;
+
         switch (transfType)
         {
+
             case PieceTransformType.Queen:
                 newPiecePrefab = queenPrefabs.queen;
+              
                 break;
             case PieceTransformType.Rook:
                 newPiecePrefab = queenPrefabs.rook;
+                
                 break;
             case PieceTransformType.Bishop:
                 newPiecePrefab = queenPrefabs.bishop;
+                
+
                 break;
             case PieceTransformType.Knight:
                 newPiecePrefab = queenPrefabs.knight;
+                
                 break;
             default:
                 break;
@@ -894,10 +905,27 @@ public partial class PlayerTurnServerSystem : SystemBase
         PlayParticle.Instance.PlayRequest(socketTrans.Position, ParticleType.Kill, ecb);
         ecb.AddComponent<ChessSocketC>(instace, SystemAPI.GetComponent<ChessSocketC>(moveToSocket));
         ecb.SetComponent<LocalTransform>(instace, socketTrans);
+
         ecb.AddComponent<ChessSocketPieceLinkC>(moveToSocket, new ChessSocketPieceLinkC
         {
             pieceE = instace
         });
+
+        var board = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+
+        if (isWhite)
+        {
+            ecb.AppendToBuffer<ChessBoardWhitePiecesBuffer>(board, new ChessBoardWhitePiecesBuffer
+            {
+                pieceE = instace
+            });
+        }
+        else {
+            ecb.AppendToBuffer<ChessBoardBlackPiecesBuffer>(board, new ChessBoardBlackPiecesBuffer
+            {
+                pieceE = instace
+            });
+        }
     }
 
     void LoopMove(
