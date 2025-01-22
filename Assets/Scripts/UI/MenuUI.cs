@@ -6,7 +6,8 @@ public class MenuUI : BaseGameUI
     public Button startServerButton;
     public Button connectToServerButton;
     public Button pasteButton;
-    
+    public Button quitButton;
+
     public TMPro.TMP_InputField codeInput;
     public BaseGameUI gameUI;
     public CreateGameUI createGameUI;
@@ -14,6 +15,11 @@ public class MenuUI : BaseGameUI
     protected override void Awake()
     {
         base.Awake();
+
+        quitButton.onClick.AddListener(() =>
+        {
+            Application.Quit();
+        });
 
         pasteButton.onClick.AddListener(() =>
         {

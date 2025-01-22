@@ -2,7 +2,32 @@ using System;
 using System.ComponentModel;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.UniversalDelegates;
 using Unity.Mathematics;
+
+public static class BoardPositions
+{
+    public static readonly string[] horizontal = {
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h"
+    };
+    public static readonly string[] vertical = {
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+    };
+}
 
 readonly partial struct ChessBoardPersistentAspect : IAspect
 {
@@ -83,7 +108,6 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 
     public bool SocketPosition(Entity socket, out int2 xy)
     {
-
         xy.x = -1;
         xy.y = -1;
 
@@ -109,6 +133,21 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         }
 
         return -1;
+    }
+
+    public void GetSocketPosition(Entity socket, out int x, out int y)
+    {
+        int index = -1;
+        x = -1;
+        y = -1;
+        for (int i = 0; i < boardSocketsB.Length; i++)
+        {
+            if (boardSocketsB[i].socketE == socket)
+                index = i;
+        }
+
+        x = index % GRID_X;
+        y = index / GRID_X;    
     }
 
     public bool IsBoardEnd(bool isWhite, int index)

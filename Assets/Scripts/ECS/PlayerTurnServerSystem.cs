@@ -120,7 +120,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             var item = pieces[i];
             var steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
             if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(item))
-            {            
+            {
                 var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item).ToNativeArray(Allocator.Temp);
                 var socketC = SystemAPI.GetComponent<ChessSocketC>(item);
 
@@ -147,7 +147,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             {
                 var buffer = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item);
                 buffer.Clear();
-                buffer.AddRange(allPiecesSteps[i].AsArray());               
+                buffer.AddRange(allPiecesSteps[i].AsArray());
             }
         }
 
@@ -594,6 +594,26 @@ public partial class PlayerTurnServerSystem : SystemBase
         RecalculatePossibleSteps(board, board.GetWhiteKing(), board.GetWhitePieces());
     }
 
+    private void MovePieceFromToSocketWithChatMessage(Entity fromSocket, Entity toSocket, EntityCommandBuffer ecb)
+    {
+        string message = "[Sys] ";
+        var board = GetBoard();
+        var peice = SystemAPI.GetComponent<ChessSocketPieceLinkC>(fromSocket);
+        var peiceData = SystemAPI.GetComponent<ChessPieceC>(peice.pieceE);
+
+        string color = peiceData.isWhite ? "white" : "black";
+
+        
+        board.GetSocketPosition(fromSocket, out int x, out int y);
+        board.GetSocketPosition(toSocket, out int x1, out int y1);
+
+        message += $"{color} {peiceData.chessType} {BoardPositions.horizontal[x]}{BoardPositions.vertical[y]}" +
+            $" -> {BoardPositions.horizontal[x1]}{BoardPositions.vertical[y1]}";
+        ChatWindow.Instance.RequestText(message, ecb);
+
+        MovePieceFromToSocket(fromSocket, toSocket);
+    }
+
     private void MovePieceFromToSocket(Entity fromSocket, Entity toSocket)
     {
         var toPiece = MovePieceToSocketData(fromSocket, toSocket);
@@ -783,7 +803,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         //pawn promotion
         if (pieceData.chessType == ChessType.Pawn)
         {
-            MovePieceFromToSocket(moveFromSocket, moveToSocket);
+            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
             var isWhite = pieceData.isWhite;
 
             if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
@@ -870,11 +890,11 @@ public partial class PlayerTurnServerSystem : SystemBase
                     }
                 }
             }
-            MovePieceFromToSocket(moveFromSocket, moveToSocket);
+            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
         }
         else
         {
-            MovePieceFromToSocket(moveFromSocket, moveToSocket);
+            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
         }
 
         return true;

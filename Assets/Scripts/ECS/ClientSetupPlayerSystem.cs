@@ -34,6 +34,9 @@ public partial class ClientSetupPlayerSystem : SystemBase
                 });
             }
 
+            ChatWindow.Instance.ClearChat();
+            ChatWindow.Instance.Show(false);
+
             var camera = CameraController.Instance.GetCameraTarget();
             camera.position = cameraLtw.Position;
             camera.rotation = cameraLtw.Rotation;

@@ -20,6 +20,7 @@ public class CreateGameUI : BaseGameUI
         {
             menuUI.Show();
             Hide();
+            ConnectionManager.Instance.Disconnect();
         });
 
         copyCode.onClick.AddListener(() =>
