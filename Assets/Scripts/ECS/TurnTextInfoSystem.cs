@@ -1,7 +1,6 @@
 using Unity.Entities;
 using Unity.NetCode;
 using Unity.Transforms;
-using UnityEngine;
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public partial class TurnTextInfoSystem : SystemBase
@@ -14,7 +13,6 @@ public partial class TurnTextInfoSystem : SystemBase
         RequireForUpdate<ChessBoardTurnC>();
         RequireForUpdate<ChessPlayerC>();
         RequireForUpdate<NetworkId>();
-
     }
 
     protected override void OnUpdate()

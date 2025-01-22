@@ -151,13 +151,13 @@ public partial class PlayerTurnServerSystem : SystemBase
         return IsCorrectSocketToMove(raycastedSocketE);
     }
 
-    bool IsCorrectSocketToMove(Entity raycastedSocketE)
+    bool IsCorrectSocketToMove(Entity targetSocketE)
     {
         var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
 
         foreach (var item in turnForSelected)
         {
-            if (item.socketC.socketE == raycastedSocketE)
+            if (item.socketC.socketE == targetSocketE)
             {
                 return true;
             }
@@ -199,7 +199,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         return SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
     }
 
-    public Entity Raycast(float3 RayFrom, float3 RayTo)
+    public bool Raycast(float3 RayFrom, float3 RayTo, out Unity.Physics.RaycastHit hit)
     {
         EntityQueryBuilder builder = new EntityQueryBuilder(Allocator.Temp).WithAll<PhysicsWorldSingleton>();
 
@@ -219,21 +219,18 @@ public partial class PlayerTurnServerSystem : SystemBase
             }
         };
 
-        Unity.Physics.RaycastHit hit = new Unity.Physics.RaycastHit();
         bool haveHit = collisionWorld.CastRay(input, out hit);
-        if (haveHit)
-        {
-            return hit.Entity;
-        }
-
-        return Entity.Null;
+        return haveHit;
     }
 
     bool RaycastSocket(float3 rayFrom, float3 rayTo, out Entity raycastedSocketE)
     {
-        raycastedSocketE = Raycast(rayFrom, rayTo);
+        bool result = Raycast(rayFrom, rayTo, out var hit);
+        raycastedSocketE = hit.Entity;
+        if (result == false)
+            return false;
 
-        bool result = SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE);
+        result = SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE);
 
         Debug.Log($"[Server] do raycast has target {result} target {raycastedSocketE}");
         return result;
@@ -243,63 +240,121 @@ public partial class PlayerTurnServerSystem : SystemBase
     {
         moveData = new MoveChess { fromIndex = -1, toIndex = -1 };
         needMove = false;
-        var quety = SystemAPI.QueryBuilder().WithAll<RaycastChessRpc>().Build();
-
-        if (quety.IsEmpty)
-        {
-            return;
-        }
-
-        var data = quety.GetSingleton<RaycastChessRpc>();
-        EntityManager.DestroyEntity(quety);
-
+        var grabQuery = SystemAPI.QueryBuilder().WithAll<GrabChessRpc>().Build();
         var ecb = new EntityCommandBuffer(Allocator.Temp);
-        bool canMove = false;
-        bool isSelected = false;
 
-        if (RaycastSocket(data.rayFrom, data.rayTo, out Entity raycastedSocketE))
+        if (!grabQuery.IsEmpty)
         {
-            Debug.Log("[Client] raycasted socket");
-            var state = SystemAPI.GetSingleton<ChessBoardTurnC>();
-            if (SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE))
+            var grabRpc = grabQuery.GetSingleton<GrabChessRpc>();
+            EntityManager.DestroyEntity(grabQuery);
+       
+            if (RaycastSocket(grabRpc.rayFrom, grabRpc.rayTo, out Entity raycastedSocketE))
             {
-                canMove = CanMoveChess(raycastedSocketE, ecb);
-
-                if (!canMove && HasPieceInSlot(raycastedSocketE))
-                {
-                    var pieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(raycastedSocketE).pieceE;
-                    var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
-                    if (state.isWhite == pieceData.isWhite)
+                Debug.Log("[Server] raycasted select socket");
+                var state = SystemAPI.GetSingleton<ChessBoardTurnC>();
+                if (SystemAPI.HasComponent<ChessSocketC>(raycastedSocketE))
+                {  
+                    if (HasPieceInSlot(raycastedSocketE))
                     {
-                        isSelected = true;                     
-                        AudioManager.Instance.PlayRequest(SfxType.Select, ecb);
-                        ClearSelection(ecb);
-                        m_LastSelectedSocket = raycastedSocketE;
-                        m_LastSelectedPieceE = pieceE;
+                        var pieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(raycastedSocketE).pieceE;
+                        var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
+                        if (state.isWhite == pieceData.isWhite)
+                        {
+                            Debug.Log("[Server] select chess");
+
+                            AudioManager.Instance.PlayRequest(SfxType.Select, ecb);
+                            ClearSelection(ecb);
+
+                            m_LastSelectedSocket = raycastedSocketE;
+                            m_LastSelectedPieceE = pieceE;
+                       
+                            ShowSelectedAndTurns(ecb);
+                        }
                     }
                 }
             }
         }
 
-        if (canMove)
-        {
-            var board = GetBoard();
-            moveData = new MoveChess
-            {
-                fromIndex = board.IndexOf(m_LastSelectedSocket),
-                toIndex = board.IndexOf(raycastedSocketE),
-            };
+        bool hasSelectedSocket = SystemAPI.HasComponent<ChessSocketPieceLinkC>(m_LastSelectedSocket);
 
-            ClearSelection(ecb);
-            needMove = true;
-        }
-        else if (isSelected)
+        var moveQuery = SystemAPI.QueryBuilder().WithAll<MoveChessRpc>().Build();
+
+        if (!moveQuery.IsEmpty)
         {
-            Debug.Log("[Client] select chess");
-            ShowSelectedAndTurns(ecb);
+            var moveRpcArray = moveQuery.ToComponentDataArray<MoveChessRpc>(Allocator.Temp);
+            var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
+            EntityManager.DestroyEntity(moveQuery);
+
+            if (hasSelectedSocket && Raycast(moveRpc.rayFrom, moveRpc.rayTo, out var hit))
+            {
+                var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
+
+                var pos = pieceLtw.ValueRO.Position;
+                var hitPos = hit.Position;
+                hitPos.y = 1f;
+                float speed = 10f;
+                pieceLtw.ValueRW.Position = math.lerp(pos, hitPos, SystemAPI.Time.DeltaTime * speed);
+            }
+        }
+
+        var dropQuery = SystemAPI.QueryBuilder().WithAll<DropChessRpc>().Build();
+
+        if (!dropQuery.IsEmpty)
+        {
+            var dropRpc = dropQuery.GetSingleton<DropChessRpc>();
+            EntityManager.DestroyEntity(dropQuery);
+
+            if (hasSelectedSocket)
+            {
+                var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
+
+                var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
+
+                var closest = FindClosestPossibleMove(pieceLtw.ValueRO.Position, turnForSelected);
+
+                if (SystemAPI.HasComponent<ChessSocketC>(closest) && IsCorrectSocketToMove(closest))
+                {
+                    var board = GetBoard();
+                    moveData = new MoveChess
+                    {
+                        fromIndex = board.IndexOf(m_LastSelectedSocket),
+                        toIndex = board.IndexOf(closest),
+                    };
+                    needMove = true;
+                }
+                else 
+                {
+                    pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
+                    var socketLtw = SystemAPI.GetComponentRO<LocalTransform>(m_LastSelectedSocket);
+
+                    pieceLtw.ValueRW.Position = socketLtw.ValueRO.Position;
+                }
+
+                ClearSelection(ecb);
+            }
         }
 
         ecb.Playback(EntityManager);
+    }
+
+    Entity FindClosestPossibleMove(float3 position, DynamicBuffer<ChessPiecePossibleSteps> steps)
+    {
+        Entity closest = Entity.Null;
+        float closestDist = float.MaxValue;
+
+        foreach (var item in steps)
+        {
+            var pos = SystemAPI.GetComponent<LocalTransform>(item.socketC.socketE);
+
+            var dist = math.distance(pos.Position, position);
+
+            if (dist < closestDist)
+            {
+                closest = item.socketC.socketE;
+                closestDist = dist;
+            }
+        }
+        return closest;
     }
 
     bool IsGameFinished()

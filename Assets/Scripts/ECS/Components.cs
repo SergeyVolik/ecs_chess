@@ -30,7 +30,6 @@ public struct ChessBoardPersistentC : IComponentData
 
 public struct ChessBoardInstanceT : IComponentData
 {
-
     [GhostField] public Entity whiteKingE;
     [GhostField] public Entity blackKingE;
 
@@ -45,6 +44,26 @@ public struct ChessBoardInstanceSockets : IBufferElementData
     public Entity socketE;
 }
 
+public struct GrabChessRpc : IRpcCommand
+{
+    public float3 rayFrom;
+    public float3 rayTo;
+}
+
+public struct MoveChessRpc : IRpcCommand
+{
+    public float3 rayFrom;
+    public float3 rayTo;
+}
+
+public struct DropChessRpc : IRpcCommand
+{
+    public float3 rayFrom;
+    public float3 rayTo;
+}
+
+
+public struct EnablePlayerInputT : IComponentData { }
 public struct ChessGameStartT : IComponentData { }
 
 public struct ChessBoardTurnC : IComponentData

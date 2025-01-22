@@ -8,16 +8,7 @@ using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
 
-public struct RaycastChessRpc : IRpcCommand
-{
-    public float3 rayFrom;
-    public float3 rayTo;
-}
-public struct EnablePlayerInputT : IRpcCommand
-{
-
-}
-    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public partial class PlayerInputClientSystem : SystemBase
 {
     protected override void OnCreate()
@@ -29,7 +20,8 @@ public partial class PlayerInputClientSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        if (Input.GetMouseButtonDown(0))
+        bool hasInput = Input.GetMouseButton(0) || Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0);
+        if (hasInput)
         {
             var board = SystemAPI.GetSingleton<ChessBoardInstanceT>();
 
@@ -53,14 +45,42 @@ public partial class PlayerInputClientSystem : SystemBase
                 return;
 
             var ray = CameraController.Instance.GetCamera().ScreenPointToRay(Input.mousePosition);
-            var rpc = new RaycastChessRpc
+
+            if (Input.GetMouseButtonDown(0))
+            {              
+                var rpc = new GrabChessRpc
+                {
+                    rayFrom = ray.origin,
+                    rayTo = ray.origin + ray.direction * 200f,
+                };
+                var request = EntityManager.CreateEntity();
+                EntityManager.AddComponent<SendRpcCommandRequest>(request);
+                EntityManager.AddComponentData<GrabChessRpc>(request, rpc);
+            }
+
+            if (Input.GetMouseButton(0))
             {
-                rayFrom = ray.origin,
-                rayTo = ray.origin + ray.direction * 200f,
-            };
-            var request = EntityManager.CreateEntity();
-            EntityManager.AddComponent<SendRpcCommandRequest>(request);
-            EntityManager.AddComponentData<RaycastChessRpc>(request, rpc);
+                var rpc1 = new MoveChessRpc
+                {
+                    rayFrom = ray.origin,
+                    rayTo = ray.origin + ray.direction * 200f,
+                };
+                var request1 = EntityManager.CreateEntity();
+                EntityManager.AddComponent<SendRpcCommandRequest>(request1);
+                EntityManager.AddComponentData<MoveChessRpc>(request1, rpc1);
+            }
+
+            if (Input.GetMouseButtonUp(0))
+            {
+                var rpc1 = new DropChessRpc
+                {
+                    rayFrom = ray.origin,
+                    rayTo = ray.origin + ray.direction * 200f,
+                };
+                var request1 = EntityManager.CreateEntity();
+                EntityManager.AddComponent<SendRpcCommandRequest>(request1);
+                EntityManager.AddComponentData<DropChessRpc>(request1, rpc1);
+            }
         }
     }
 }
