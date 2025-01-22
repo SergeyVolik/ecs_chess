@@ -38,7 +38,7 @@ public partial class TurnTextInfoSystem : SystemBase
             whiteTurn = !whiteTurn;
             var uiPoints = SystemAPI.GetSingleton<ChessBoardUIPoints>();
 
-            var posE = isYourStep ? uiPoints.whiteTurnUiPoint : uiPoints.blackTurnUiPoint;
+            var posE = localPlayer.isWhite ? uiPoints.whiteTurnUiPoint : uiPoints.blackTurnUiPoint;
             var ltw = SystemAPI.GetComponent<LocalTransform>(posE);
         
             canvasTransform.position = ltw.Position;

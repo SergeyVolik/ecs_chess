@@ -1825,7 +1825,7 @@ GameObject:
   - component: {fileID: 810168950}
   - component: {fileID: 810168951}
   m_Layer: 0
-  m_Name: ConnectionMnaager
+  m_Name: ConnectionManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
