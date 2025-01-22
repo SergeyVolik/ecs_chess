@@ -112,30 +112,42 @@ public partial class PlayerTurnServerSystem : SystemBase
         var king = board.GetCurrentKing();
         var pieces = board.GetCurrentPlayerPieces();
 
-        NativeList<ChessPiecePossibleSteps> steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
+        NativeList<NativeList<ChessPiecePossibleSteps>> allPiecesSteps =
+            new NativeList<NativeList<ChessPiecePossibleSteps>>(Allocator.Temp);
 
-        foreach (var item in pieces)
+        for (int i = 0; i < pieces.Length; i++)
         {
+            var item = pieces[i];
+            var steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
             if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(item))
-            {
-                steps.Clear();
+            {            
                 var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item).ToNativeArray(Allocator.Temp);
                 var socketC = SystemAPI.GetComponent<ChessSocketC>(item);
 
                 foreach (var item1 in stepsBefore)
                 {
                     MovePieceFromToSocket(socketC.socketE, item1.socketC.socketE);
-                    RecalculatePossibleStepsForOponent(board);
-                    if (!IsKingUnderAttack(king, out _, out _))
+                    RecalculatePossibleStepsForBoard(board);
+                    if (!IsKingUnderAttack(king, out _, out _) && !IsGameFinished())
                     {
                         steps.Add(item1);
                     }
                     ResetPrevMoveData();
                 }
+            }
 
-                var possibleSteps = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item);
-                possibleSteps.Clear();
-                possibleSteps.AddRange(steps.AsArray());
+            allPiecesSteps.Add(steps);
+        }
+
+        RecalculatePossibleStepsForBoard(board);
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            var item = pieces[i];
+            if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(item))
+            {
+                var buffer = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item);
+                buffer.Clear();
+                buffer.AddRange(allPiecesSteps[i].AsArray());               
             }
         }
 
@@ -161,6 +173,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     void ShowSelectedAndTurns(EntityCommandBuffer ecb)
     {
+        Debug.Log("[Server] Clear selection");
         if (SystemAPI.HasComponent<ChessSocketC>(m_LastSelectedSocket))
         {
             var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(m_LastSelectedSocket);
@@ -212,6 +225,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     void ClearSelection(EntityCommandBuffer ecb)
     {
+        Debug.Log("[Server] Clear selection");
         if (SystemAPI.HasComponent<ChessSocketSelectedT>(m_LastSelectedSocket))
         {
             ecb.RemoveComponent<ChessSocketSelectedT>(m_LastSelectedSocket);
@@ -219,12 +233,12 @@ public partial class PlayerTurnServerSystem : SystemBase
             asp.Destory(ecb);
         }
 
-        if (HasSelectedPiece())
+        var board = GetBoard();
+        foreach (var item in board.boardSocketsB)
         {
-            var steps = GetSelectedPossibleSteps();
-            foreach (var turn in steps)
+            if (SystemAPI.HasComponent<ChessSocketHighlightInstanceC>(item.socketE))
             {
-                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketC.socketE);
+                var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.socketE);
                 highlight.Destory(ecb);
             }
         }
@@ -880,20 +894,20 @@ public partial class PlayerTurnServerSystem : SystemBase
 
             case PieceTransformType.Queen:
                 newPiecePrefab = queenPrefabs.queen;
-              
+
                 break;
             case PieceTransformType.Rook:
                 newPiecePrefab = queenPrefabs.rook;
-                
+
                 break;
             case PieceTransformType.Bishop:
                 newPiecePrefab = queenPrefabs.bishop;
-                
+
 
                 break;
             case PieceTransformType.Knight:
                 newPiecePrefab = queenPrefabs.knight;
-                
+
                 break;
             default:
                 break;
@@ -920,7 +934,8 @@ public partial class PlayerTurnServerSystem : SystemBase
                 pieceE = instace
             });
         }
-        else {
+        else
+        {
             ecb.AppendToBuffer<ChessBoardBlackPiecesBuffer>(board, new ChessBoardBlackPiecesBuffer
             {
                 pieceE = instace

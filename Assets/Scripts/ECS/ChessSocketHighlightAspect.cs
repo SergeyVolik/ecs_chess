@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Unity.Entities;
 using Unity.Transforms;
 
@@ -26,6 +27,8 @@ readonly partial struct ChessSocketHighlightAspect : IAspect
 
     public void ShowObject(EntityCommandBuffer ecb, Entity prefab)
     {
+        Destory(ecb);
+        
         var e = ecb.Instantiate(prefab);
         ecb.AddComponent<ChessSocketHighlightInstanceC>(selfE, new ChessSocketHighlightInstanceC
         {

@@ -11,19 +11,19 @@ public static class TextHelper
         int minutes = (int)(seconds / 60);
         int hours = (int)(minutes / 60);
 
-        if (hours > 1)
+        if (hours >= 1)
         {
             minutes = (int)(minutes % 60);
             text += $"{hours} h ";
         }
 
-        if (minutes > 1)
+        if (minutes >= 1)
         {
             sec = (int)(seconds % 60);
             text += $"{minutes} m ";
         }
 
-        if (sec > 1)
+        if (sec >= 1)
         {
             text += $"{sec} s ";
         }
