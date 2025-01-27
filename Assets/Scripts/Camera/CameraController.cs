@@ -1,6 +1,4 @@
 using Cinemachine;
-using System;
-using Unity.Burst.Intrinsics;
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -16,6 +14,9 @@ public class CameraController : MonoBehaviour
     private CinemachineVirtualCamera m_VCamera;
     private CinemachineComponentBase m_ComponentCamera;
     public float zoomSensitivity = 10;
+    public float rotateSensitivity = 10;
+    public float moveSensitivity = 10;
+
     private float cameraDistance;
 
     public Camera GetCamera() => m_Camera;
@@ -23,6 +24,8 @@ public class CameraController : MonoBehaviour
 
     public Vector3 bodyOffset;
     public Vector3 aimOffset;
+    public float aimRotationX;
+
     private bool m_IsWhite = true;
 
     private void Awake()
@@ -41,10 +44,14 @@ public class CameraController : MonoBehaviour
     public void SetupPlayerCamera(bool isWhite)
     {
         m_IsWhite = isWhite;
+        var currentAimOffset = aimOffset;
+        if (isWhite)
+            currentAimOffset.z *= -1;
+        m_CameraTarget.position = currentAimOffset;
 
+        m_CameraTarget.rotation = Quaternion.Euler(aimRotationX, isWhite ? 0 : 180, 0);
         UpdateCameraDistance();
         UpdateBodyOffset();
-        UpdateAimOffset();
     }
 
     void UpdateCameraDistance()
@@ -56,42 +63,46 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    private void UpdateAimOffset()
-    {
-        var aim = m_VCamera.GetCinemachineComponent(CinemachineCore.Stage.Aim);
-        if (aim is CinemachineComposer aimComp)
-        {
-            aimComp.m_TrackedObjectOffset = aimOffset;
-        }
-    }
-
     private void UpdateBodyOffset()
     {
         var body = m_VCamera.GetCinemachineComponent(CinemachineCore.Stage.Body);
         if (body is CinemachineFramingTransposer trans)
         {
             var offset = bodyOffset;
-
-            if (m_IsWhite)
-            {
-                offset.z *= -1;
-            }
-
             trans.m_TrackedObjectOffset = offset;
         }
     }
 
     private void Update()
     {
-        if (Input.GetMouseButton(1))
-        {
-
-        }
-
         ExecuteZoom();
+        ExecuteMove();
+        ExecuteRotate();
 
         UpdateBodyOffset();
-        UpdateAimOffset();
+    }
+
+    private void ExecuteRotate()
+    {
+        if (Input.GetMouseButton(1))
+        {
+            var x = Input.GetAxis("Mouse X");
+            var y = Input.GetAxis("Mouse Y");
+
+            m_CameraTarget.Rotate(Vector3.right, y * rotateSensitivity);
+            m_CameraTarget.Rotate(Vector3.up, x * rotateSensitivity, Space.World);
+        }
+    }
+
+    private void ExecuteMove()
+    {
+        if (Input.GetKey(KeyCode.Mouse2))
+        {
+            var x = Input.GetAxis("Mouse X");
+            var y = Input.GetAxis("Mouse Y");
+
+            m_CameraTarget.position += new Vector3(x, 0, y) * moveSensitivity;
+        }
     }
 
     private void ExecuteZoom()
