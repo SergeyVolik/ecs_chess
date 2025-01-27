@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7891330548541547065}
   - component: {fileID: 3159764402967631176}
-  - component: {fileID: 7640667034555811285}
   m_Layer: 0
   m_Name: BlackBishop
   m_TagString: Untagged
@@ -58,28 +57,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 3444129118978269286}
   m_Enabled: 1
---- !u!64 &7640667034555811285
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7406297124078467203}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 1
-  m_CookingOptions: 30
-  m_Mesh: {fileID: -7832827870577133741, guid: 19791e57ed53bc3429c6f72d7f2a68c2, type: 3}
 --- !u!1 &8008271667780290823
 GameObject:
   m_ObjectHideFlags: 0

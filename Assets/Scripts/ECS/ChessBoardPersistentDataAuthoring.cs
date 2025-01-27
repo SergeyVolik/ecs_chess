@@ -23,9 +23,6 @@ public class ChessBoardPersistentDataAuthoring : MonoBehaviour
     public ChessPieces black;
     public ChessPieces white;
 
-    public Transform whitePlayerCameraPos;
-    public Transform blackPlayerCameraPos;
-
     public class Baker : Baker<ChessBoardPersistentDataAuthoring>
     {
         public override void Bake(ChessBoardPersistentDataAuthoring authoring)
@@ -39,8 +36,6 @@ public class ChessBoardPersistentDataAuthoring : MonoBehaviour
                 chessBoardPrefab = GetEntity(authoring.chessBoard, TransformUsageFlags.Dynamic),
                 blackPiecesPrefabs = GetPrefabs(authoring.black),
                 whitePiecesPrefabs = GetPrefabs(authoring.white),
-                blackCameraPos = GetEntity(authoring.blackPlayerCameraPos, TransformUsageFlags.Dynamic),
-                whiteCameraPos = GetEntity(authoring.whitePlayerCameraPos, TransformUsageFlags.Dynamic),
             });
         }
 

@@ -22,10 +22,6 @@ public struct ChessBoardPersistentC : IComponentData
 
     public ChessPiecesPrefabs blackPiecesPrefabs;
     public ChessPiecesPrefabs whitePiecesPrefabs;
-
-    public Entity whiteCameraPos;
-    public Entity blackCameraPos;
-
 }
 
 public struct ChessBoardInstanceT : IComponentData

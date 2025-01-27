@@ -20,14 +20,12 @@ public partial class ClientSetupPlayerSystem : SystemBase
             LocalTransform cameraLtw;
             if (command.ValueRO.isWhite)
             {
-                cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.whiteCameraPos);
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
                      isWhite = true
                 });
             }
             else
             {
-                cameraLtw = SystemAPI.GetComponent<LocalTransform>(boardData.blackCameraPos);
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC
                 {
                     isWhite = false
@@ -37,9 +35,7 @@ public partial class ClientSetupPlayerSystem : SystemBase
             ChatWindow.Instance.ClearChat();
             ChatWindow.Instance.Show(false);
 
-            var camera = CameraController.Instance.GetCameraTarget();
-            camera.position = cameraLtw.Position;
-            camera.rotation = cameraLtw.Rotation;
+           CameraController.Instance.SetupPlayerCamera(command.ValueRO.isWhite);           
             Debug.Log("[Client] setup camera");
             ecb.DestroyEntity(entity);
         }
