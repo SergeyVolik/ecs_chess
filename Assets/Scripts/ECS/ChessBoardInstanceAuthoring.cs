@@ -1,5 +1,6 @@
 using TMPro;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
@@ -9,15 +10,22 @@ public struct ChessBoardUIPoints : IComponentData
     public Entity whiteTurnUiPoint;
     public Entity blackTurnUiPoint;
 }
+
 public struct ChessBoardTimerC : IComponentData
 {
     [GhostField] public float duration;
 }
 
+public struct ChessBoardBoundsC : IComponentData
+{
+    public Bounds bounds;
+}
 public class ChessBoardInstanceAuthoring : MonoBehaviour
 {
     public Transform whiteTurnUiPoint;
     public Transform blackTurnUiPoint;
+
+    public Bounds bounds;
 
     public class Baker : Baker<ChessBoardInstanceAuthoring>
     {
@@ -40,6 +48,9 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
             {
                 blackTurnUiPoint = GetEntity(authoring.blackTurnUiPoint, TransformUsageFlags.Dynamic),
                 whiteTurnUiPoint = GetEntity(authoring.whiteTurnUiPoint, TransformUsageFlags.Dynamic),
+            });
+            AddComponent<ChessBoardBoundsC>(entity, new ChessBoardBoundsC { 
+                 bounds = authoring.bounds
             });
         }
     }

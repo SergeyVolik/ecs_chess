@@ -73,8 +73,13 @@ public partial class PlayerInputClientSystem : SystemBase
             if (Input.GetMouseButtonUp(0))
             {
                 var request = EntityManager.CreateEntity();
+                var rpc = new DropChessRpc
+                {
+                    rayFrom = ray.origin,
+                    rayTo = ray.origin + ray.direction * 200f,
+                };
                 EntityManager.AddComponent<SendRpcCommandRequest>(request);
-                EntityManager.AddComponent<DropChessRpc>(request);
+                EntityManager.AddComponentData<DropChessRpc>(request, rpc);
             }
         }
     }

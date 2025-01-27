@@ -354,15 +354,24 @@ public partial class PlayerTurnServerSystem : SystemBase
             if (hasSelectedSocket)
             {
                 if (Raycast(moveRpc.rayFrom, moveRpc.rayTo, out var hit))
+                {
                     lastMoveRaycastPos = hit.Position;
+                    var bouds = SystemAPI.GetComponent<ChessBoardBoundsC>(GetBoardEntity());
+                    Debug.Log(bouds.bounds.min);
+                    Debug.Log(bouds.bounds.max);
 
+                    lastMoveRaycastPos = math.clamp(lastMoveRaycastPos, bouds.bounds.min, bouds.bounds.max);
+                }
+              
                 var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
 
                 var pos = pieceLtw.ValueRO.Position;
                 var hitPos = lastMoveRaycastPos;
                 hitPos.y = 1f;
-                float speed = 10f;
-                pieceLtw.ValueRW.Position = math.lerp(pos, hitPos, SystemAPI.Time.DeltaTime * speed);
+                float speed = 20f;
+                //pieceLtw.ValueRW.Position = math.lerp(pos, hitPos, SystemAPI.Time.DeltaTime * speed);
+                pieceLtw.ValueRW.Position = hitPos;
+
             }
         }
 
@@ -370,18 +379,23 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             if (hasSelectedSocket)
             {
+                var moveRpcArray = dropQuery.ToComponentDataArray<DropChessRpc>(Allocator.Temp);
+                var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
+
                 var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
                 var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
 
-                var closest = FindClosestPossibleMove(pieceLtw.ValueRO.Position, turnForSelected);
+                //var closest = FindClosestPossibleMove(pieceLtw.ValueRO.Position, turnForSelected);
 
-                if (SystemAPI.HasComponent<ChessSocketC>(closest) && IsCorrectSocketToMove(closest))
+                if (RaycastSocket(moveRpc.rayFrom, moveRpc.rayTo, out Entity targetSocket) &&
+                    SystemAPI.HasComponent<ChessSocketC>(targetSocket) &&
+                    IsCorrectSocketToMove(targetSocket))
                 {
                     var board = GetBoard();
                     moveData = new MoveChess
                     {
                         fromIndex = board.IndexOf(m_LastSelectedSocket),
-                        toIndex = board.IndexOf(closest),
+                        toIndex = board.IndexOf(targetSocket),
                     };
                     needMove = true;
                 }
@@ -526,7 +540,11 @@ public partial class PlayerTurnServerSystem : SystemBase
         return SystemAPI.GetComponent<ChessPieceC>(e).notActive == false;
     }
 
-    ChessBoardInstanceAspect GetBoard()
+    Entity GetBoardEntity()
+    {
+        return SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+    }
+        ChessBoardInstanceAspect GetBoard()
     {
         var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
         return SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
