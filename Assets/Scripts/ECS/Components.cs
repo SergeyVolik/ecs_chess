@@ -121,6 +121,11 @@ public struct ChessSocketHighlightInstanceC : IComponentData
     public Entity entity;
 }
 
+public struct ChessSocketPrevMoveC : IComponentData
+{
+    public Entity entity;
+}
+
 public struct ChessSocketHighlightC : IComponentData
 {
     public Entity highlightSelectedPrefab;

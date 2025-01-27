@@ -10,14 +10,36 @@ readonly partial struct ChessSocketHighlightAspect : IAspect
     private readonly RefRO<ChessSocketHighlightC> prefabsC;
     [Optional]
     private readonly RefRW<ChessSocketHighlightInstanceC> instanceC;
-
-    public void Destory(EntityCommandBuffer ecb)
+    [Optional]
+    private readonly RefRW<ChessSocketPrevMoveC> instance1C;
+    public void DestoryHighlight(EntityCommandBuffer ecb)
     {
         if (instanceC.IsValid)
         {
             ecb.DestroyEntity(instanceC.ValueRO.entity);
             ecb.RemoveComponent<ChessSocketHighlightInstanceC>(selfE);
         }
+    }
+
+    public void DestoryPrevMove(EntityCommandBuffer ecb)
+    {
+        if (instance1C.IsValid)
+        {
+            ecb.DestroyEntity(instance1C.ValueRO.entity);
+            ecb.RemoveComponent<ChessSocketPrevMoveC>(selfE);
+        }
+    }
+
+    public void ShowPrevMove(EntityCommandBuffer ecb)
+    {
+        DestoryPrevMove(ecb);
+
+        var e = ecb.Instantiate(prefabsC.ValueRO.highlightSelectedPrefab);
+        ecb.AddComponent<ChessSocketPrevMoveC>(selfE, new ChessSocketPrevMoveC
+        {
+            entity = e
+        });
+        ecb.SetComponent<LocalTransform>(e, transform.ValueRO);
     }
 
     public void ShowMovePos(EntityCommandBuffer ecb)
@@ -27,8 +49,8 @@ readonly partial struct ChessSocketHighlightAspect : IAspect
 
     public void ShowObject(EntityCommandBuffer ecb, Entity prefab)
     {
-        Destory(ecb);
-        
+        DestoryHighlight(ecb);
+
         var e = ecb.Instantiate(prefab);
         ecb.AddComponent<ChessSocketHighlightInstanceC>(selfE, new ChessSocketHighlightInstanceC
         {
