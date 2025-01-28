@@ -177,7 +177,7 @@ MonoBehaviour:
   bounds:
     m_Center: {x: 0, y: 0, z: 0}
     m_Extent: {x: 6, y: 1, z: 6}
-  config: {fileID: 11400000, guid: ae5047f2593073b4bb14403fec23af66, type: 2}
+  config: {fileID: 11400000, guid: 21dd91d61e416324db40b056cc2e9d91, type: 2}
 --- !u!1 &8890739800479113192
 GameObject:
   m_ObjectHideFlags: 0
