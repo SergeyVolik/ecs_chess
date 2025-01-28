@@ -138,8 +138,6 @@ public partial class PlayerTurnServerSystem : SystemBase
                     //Debug.Log($"[Server] {type} check move: " +
                     //   $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
                     //   $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
-
-                    /*if (*/
                     MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);
                    
                     RecalculatePossibleStepsForBoard(board);
@@ -149,14 +147,15 @@ public partial class PlayerTurnServerSystem : SystemBase
                     //Debug.Log($"[Server] isKingUnderAttack: {isKingUnderAttack} isEnd: {IsGameFinished()}");
                     if (!isKingUnderAttack && !IsGameFinished())
                     {
-                        Debug.Log($"[Server] {type} add move: " +
-                            $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
-                            $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
+                        //Debug.Log($"[Server] {type} add move: " +
+                        //    $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
+                        //    $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
                         steps.Add(item1);
                     }
+
                     ResetPrevMoveData();
                     RecalculatePossibleStepsForBoard(board);
-                    //}
+                    
                 }
             }
 
@@ -343,7 +342,8 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         if (!grabQuery.IsEmpty)
         {
-            var grabRpc = grabQuery.GetSingleton<GrabChessRpc>();
+            var granRpcArray = grabQuery.ToComponentDataArray<MoveChessRpc>(Allocator.Temp);
+            var grabRpc = granRpcArray[granRpcArray.Length - 1];       
 
             if (RaycastSocket(grabRpc.rayFrom, grabRpc.rayTo, out Entity raycastedSocketE))
             {

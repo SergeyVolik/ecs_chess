@@ -12,9 +12,13 @@ public class MenuUI : BaseGameUI
     public BaseGameUI gameUI;
     public CreateGameUI createGameUI;
 
+    public static MenuUI Instance { get; private set; }
+
     protected override void Awake()
     {
         base.Awake();
+
+        Instance = this;
 
         quitButton.onClick.AddListener(() =>
         {

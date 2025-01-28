@@ -15,8 +15,15 @@ public class BaseGameUI : MonoBehaviour
         m_GraphicRaycaster = GetComponent<GraphicRaycaster>();
     }
 
+    private static BaseGameUI s_PrevShoed;
     public virtual void Show()
     {
+        if (s_PrevShoed)
+        {
+            s_PrevShoed.Hide();
+        }
+
+        s_PrevShoed = this;
         m_Canvas.enabled = true;
         m_GraphicRaycaster.enabled = true;
     }
