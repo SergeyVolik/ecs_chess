@@ -27,6 +27,7 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
 
     public Bounds bounds;
 
+    public ChessBoardConfigurationSO config;
     public class Baker : Baker<ChessBoardInstanceAuthoring>
     {
 
@@ -35,6 +36,10 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent<ChessBoardInstanceT>(entity);
             AddComponent<ChessBoardTimerC>(entity);
+            AddComponentObject<ChessBoardInstanceSpawnConfigC>(entity, new ChessBoardInstanceSpawnConfigC
+            {
+                config = authoring.config
+            });
 
             AddComponent<ChessBoardTurnC>(entity, new ChessBoardTurnC
             {

@@ -1,8 +1,5 @@
-using System;
-using System.ComponentModel;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.UniversalDelegates;
 using Unity.Mathematics;
 
 public static class BoardPositions
@@ -27,6 +24,29 @@ public static class BoardPositions
         "7",
         "8"
     };
+}
+
+public enum ChessPositionHorizontal
+{
+    a,
+    b,
+    c,
+    d,
+    e,
+    f,
+    g,
+    h
+}
+public enum ChessPositionVertical
+{
+    one,
+    two,
+    three,
+    four,
+    five,
+    fix,
+    seven,
+    eight
 }
 
 readonly partial struct ChessBoardPersistentAspect : IAspect

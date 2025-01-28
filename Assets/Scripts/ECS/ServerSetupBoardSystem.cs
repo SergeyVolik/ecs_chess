@@ -1,10 +1,25 @@
 using System;
+using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
+
+[System.Serializable]
+public struct SpawnPieceData
+{
+    public ChessPositionHorizontal horizontal;
+    public ChessPositionVertical vertical;
+    public ChessType type;
+}
+
+public class ChessBoardInstanceSpawnConfigC : IComponentData
+{
+    public ChessBoardConfigurationSO config;
+}
+
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct ServerSetupBoardSystem : ISystem
@@ -30,7 +45,9 @@ public partial struct ServerSetupBoardSystem : ISystem
         var boardE = state.EntityManager.Instantiate(persistentData.chessBoardPrefab);
 
         SetupSokets(ref state, boardE, in persistentData);
-        SpawnPieces(ref state, boardE, in persistentData);
+
+        SpawnBoardWithConfig(ref state, boardE, in persistentData);
+        //SpawnDefaultBoard(ref state, boardE, in persistentData);
     }
 
     public void SetupSokets(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
@@ -69,7 +86,71 @@ public partial struct ServerSetupBoardSystem : ISystem
         ecb.Playback(state.EntityManager);
     }
 
-    public void SpawnPieces(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
+    public void SpawnBoardWithConfig(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
+    {
+        var config = SystemAPI.ManagedAPI.GetComponent<ChessBoardInstanceSpawnConfigC>(boardE).config;
+
+        SpawnPieces(ref state, boardE, config.black, bC.blackPiecesPrefabs);
+        SpawnPieces(ref state, boardE, config.white, bC.whitePiecesPrefabs);
+
+        SetupPiecesBuffers(ref state, boardE);
+
+        SystemAPI.SetComponent<ChessBoardTurnC>(boardE, new ChessBoardTurnC
+        {
+            isWhite = config.currentTurnWhite
+        });
+    }
+
+    public void SpawnPieces(
+        ref SystemState state,
+          Entity boardE,
+        SpawnPieceData[] spawn,
+        ChessPiecesPrefabs prefabs)
+    {
+        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
+        var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
+        var sockets = new NativeList<ChessBoardInstanceSockets>(Allocator.Temp);
+
+        foreach (var item in spawn)
+        {
+            Entity prefab = Entity.Null;
+
+            switch (item.type)
+            {
+                case ChessType.Pawn:
+                    prefab = prefabs.pawn;
+                    break;
+                case ChessType.Bishop:
+                    prefab = prefabs.bishop;
+                    break;
+                case ChessType.Rook:
+                    prefab = prefabs.rook;
+
+                    break;
+                case ChessType.Knight:
+                    prefab = prefabs.knight;
+
+                    break;
+                case ChessType.Queen:
+                    prefab = prefabs.queen;
+                    break;
+                case ChessType.King:
+                    prefab = prefabs.king;
+
+                    break;
+                default:
+                    break;
+            }
+
+            sockets.Clear();
+            sockets.Add(boardAspect.GetSocket((int)item.horizontal, (int)item.vertical));
+            SetupPieces(ref state, sockets, ecb, prefab, boardE);
+        }
+
+        ecb.Playback(state.EntityManager);
+    }
+
+    public void SpawnDefaultBoard(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
     {
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         NativeList<ChessBoardInstanceSockets> sockets = new NativeList<ChessBoardInstanceSockets>(Allocator.Temp);
@@ -95,9 +176,15 @@ public partial struct ServerSetupBoardSystem : ISystem
 
         ecb.Playback(state.EntityManager);
 
+        SetupPiecesBuffers(ref state, boardE);
+    }
+
+    private void SetupPiecesBuffers(ref SystemState state, Entity boardE)
+    {
         var black = SystemAPI.GetBuffer<ChessBoardBlackPiecesBuffer>(boardE);
         var white = SystemAPI.GetBuffer<ChessBoardWhitePiecesBuffer>(boardE);
-
+        black.Clear();
+        white.Clear();
         var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceT>(boardE);
         foreach (var (c, e) in SystemAPI.Query<ChessPieceC>().WithEntityAccess())
         {

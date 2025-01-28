@@ -13,7 +13,6 @@ using Unity.Services.Authentication;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Networking.Transport.Relay;
-using UnityEngine.SceneManagement;
 
 public enum Result
 {
@@ -68,13 +67,15 @@ public class ConnectionManager : MonoBehaviour
         Instance = this;
     }
 
+    public const string prodocol = "dtls";
+
     public async Task ConnectToServer(string code, Action<Result> result)
     {
         try
         {
             await JointGameWithCode(code);
             m_Role = Role.Client;
-            ClientData = PlayerRelayData(m_JoinAllocation);
+            ClientData = PlayerRelayData(m_JoinAllocation, prodocol);
             StartCoroutine(ConnectECS(result));
         }
         catch (Exception ex)
@@ -146,7 +147,7 @@ public class ConnectionManager : MonoBehaviour
 
             m_Role = Role.ServerClient;
             ServerData = HostRelayData(m_HostAllocation);
-            ClientData = PlayerRelayData(m_JoinAllocation);
+            ClientData = PlayerRelayData(m_JoinAllocation, prodocol);
           
             StartCoroutine(ConnectECS(result));
         }

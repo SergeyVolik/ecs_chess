@@ -101,7 +101,6 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             NextTurn();
         }
-
     }
 
     private void NextTurn()
@@ -843,7 +842,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
             {
                 Entity pieceToDestory = pieces.pieceE;
-                PieceTransformType transfType = PieceTransformType.Queen;
+
                 requireTransformData = new SavedPieceTransformationData
                 {
                     isWhite = isWhite,
