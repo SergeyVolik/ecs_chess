@@ -74,7 +74,7 @@ public partial struct GonInGameServerSystem : ISystem
                 {
                     isWhite = false
                 });
-                Debug.Log($"[Server] go in game as white");
+                Debug.Log($"[Server] go in game as black");
             }
 
             ecb.DestroyEntity(entity);

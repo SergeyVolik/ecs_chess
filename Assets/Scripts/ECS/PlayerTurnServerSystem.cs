@@ -131,9 +131,12 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                 foreach (var item1 in stepsBefore)
                 {
-                    MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);
+                    MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);                 
                     RecalculatePossibleStepsForBoard(board);
-                    if (!IsKingUnderAttack(king, out _, out _) && !IsGameFinished())
+
+                    bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
+                    //Debug.Log($"[Server] isKingUnderAttack: {isKingUnderAttack} isEnd: {IsGameFinished()}");
+                    if (!isKingUnderAttack && !IsGameFinished())
                     {
                         steps.Add(item1);
                     }
@@ -165,10 +168,10 @@ public partial class PlayerTurnServerSystem : SystemBase
             ecb.AddComponent<SendRpcCommandRequest>(request);
             ecb.AddComponent<EndGameRPC>(request, new EndGameRPC
             {
-                isWhiteWin = isWhiteStep,
+                isWhiteWin = !isWhiteStep,
             });
             ecb.Playback(EntityManager);
-            Debug.Log($"[Server] winner white:{isWhiteStep}");
+            Debug.Log($"[Server] winner white:{!isWhiteStep}");
         }
         else
         {
@@ -362,19 +365,15 @@ public partial class PlayerTurnServerSystem : SystemBase
                 {
                     lastMoveRaycastPos = hit.Position;
                     var bouds = SystemAPI.GetComponent<ChessBoardBoundsC>(GetBoardEntity());
-                    Debug.Log(bouds.bounds.min);
-                    Debug.Log(bouds.bounds.max);
 
                     lastMoveRaycastPos = math.clamp(lastMoveRaycastPos, bouds.bounds.min, bouds.bounds.max);
                 }
 
                 var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
 
-                var pos = pieceLtw.ValueRO.Position;
                 var hitPos = lastMoveRaycastPos;
                 hitPos.y = 1f;
-                float speed = 20f;
-                //pieceLtw.ValueRW.Position = math.lerp(pos, hitPos, SystemAPI.Time.DeltaTime * speed);
+
                 pieceLtw.ValueRW.Position = hitPos;
 
             }
@@ -387,10 +386,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 var moveRpcArray = dropQuery.ToComponentDataArray<DropChessRpc>(Allocator.Temp);
                 var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
 
-                var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
-                var turnForSelected = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE);
-
-                //var closest = FindClosestPossibleMove(pieceLtw.ValueRO.Position, turnForSelected);
+              
 
                 if (RaycastSocket(moveRpc.rayFrom, moveRpc.rayTo, out Entity targetSocket) &&
                     SystemAPI.HasComponent<ChessSocketC>(targetSocket) &&
@@ -406,6 +402,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 }
                 else
                 {
+                    var pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
                     pieceLtw = SystemAPI.GetComponentRW<LocalTransform>(m_LastSelectedPieceE);
                     var socketLtw = SystemAPI.GetComponentRO<LocalTransform>(m_LastSelectedSocket);
 
@@ -417,37 +414,6 @@ public partial class PlayerTurnServerSystem : SystemBase
         }
 
         ecb.Playback(EntityManager);
-    }
-
-    Entity FindClosestPossibleMove(float3 position, DynamicBuffer<ChessPiecePossibleSteps> steps)
-    {
-        Entity closest = Entity.Null;
-        float closestDist = float.MaxValue;
-
-        var pos = SystemAPI.GetComponent<LocalTransform>(m_LastSelectedSocket);
-
-        var dist = math.distance(pos.Position, position);
-
-        if (dist < closestDist)
-        {
-            closest = m_LastSelectedSocket;
-            closestDist = dist;
-        }
-
-
-        foreach (var item in steps)
-        {
-            pos = SystemAPI.GetComponent<LocalTransform>(item.socketC.socketE);
-
-            dist = math.distance(pos.Position, position);
-
-            if (dist < closestDist)
-            {
-                closest = item.socketC.socketE;
-                closestDist = dist;
-            }
-        }
-        return closest;
     }
 
     bool IsGameFinished()
@@ -603,7 +569,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             if (!IsActive(piece))
                 continue;
 
-            RecalculatePossibleTurnsForPiece(piece, board, attackers, isttackedByKnight);
+            RecalculatePossibleTurnsForPiece(piece, board, attackers, isttackedByKnight, king == piece);
         }
     }
 
@@ -1035,7 +1001,8 @@ public partial class PlayerTurnServerSystem : SystemBase
         Entity pieceToMoveE,
         ChessBoardInstanceAspect boardAspect,
         int attackes,
-        bool isAttackedByKnight)
+        bool isAttackedByKnight,
+        bool isKing)
     {
         if (!SystemAPI.HasComponent<ChessSocketC>(pieceToMoveE))
             return;
@@ -1044,11 +1011,11 @@ public partial class PlayerTurnServerSystem : SystemBase
         var pieceData = SystemAPI.GetComponentRW<ChessPieceC>(pieceToMoveE);
 
         bool isWhite = pieceData.ValueRO.isWhite;
-        bool isCurrentPlayer = boardAspect.turnC.ValueRO.isWhite == pieceData.ValueRO.isWhite;
+
         var turnPositions = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceToMoveE);
         turnPositions.Clear();
 
-        if (attackes >= 2 || isAttackedByKnight)
+        if (!isKing && attackes >= 2 || !isKing && isAttackedByKnight)
             return;
 
         switch (pieceData.ValueRO.chessType)
