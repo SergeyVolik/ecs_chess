@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Entities;
@@ -117,30 +118,45 @@ public partial class PlayerTurnServerSystem : SystemBase
         var king = board.GetCurrentKing();
         var pieces = board.GetCurrentPlayerPieces();
 
-        NativeList<NativeList<ChessPiecePossibleSteps>> allPiecesSteps =
-            new NativeList<NativeList<ChessPiecePossibleSteps>>(Allocator.Temp);
+        var allPiecesSteps =
+            new List<List<ChessPiecePossibleSteps>>();
 
         for (int i = 0; i < pieces.Length; i++)
         {
-            var item = pieces[i];
-            var steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
-            if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(item))
+            var pieceE = pieces[i];
+            var steps = new List<ChessPiecePossibleSteps>();
+            if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(pieceE))
             {
-                var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item).ToNativeArray(Allocator.Temp);
-                var socketC = SystemAPI.GetComponent<ChessSocketC>(item);
+                var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE).ToNativeArray(Allocator.Temp);
+                var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceE);
+                var type = SystemAPI.GetComponent<ChessPieceC>(pieceE).chessType;
+
+                Debug.Log($"[Server] recalculate moves {type}");
 
                 foreach (var item1 in stepsBefore)
                 {
-                    MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);                 
+                    //Debug.Log($"[Server] {type} check move: " +
+                    //   $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
+                    //   $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
+
+                    /*if (*/
+                    MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);
+                   
                     RecalculatePossibleStepsForBoard(board);
 
                     bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
+
                     //Debug.Log($"[Server] isKingUnderAttack: {isKingUnderAttack} isEnd: {IsGameFinished()}");
                     if (!isKingUnderAttack && !IsGameFinished())
                     {
+                        Debug.Log($"[Server] {type} add move: " +
+                            $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
+                            $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
                         steps.Add(item1);
                     }
                     ResetPrevMoveData();
+                    RecalculatePossibleStepsForBoard(board);
+                    //}
                 }
             }
 
@@ -148,6 +164,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         }
 
         RecalculatePossibleStepsForBoard(board);
+
         for (int i = 0; i < pieces.Length; i++)
         {
             var item = pieces[i];
@@ -155,7 +172,10 @@ public partial class PlayerTurnServerSystem : SystemBase
             {
                 var buffer = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(item);
                 buffer.Clear();
-                buffer.AddRange(allPiecesSteps[i].AsArray());
+                foreach (var item1 in allPiecesSteps[i])
+                {
+                    buffer.Add(item1);
+                }
             }
         }
 
@@ -386,8 +406,6 @@ public partial class PlayerTurnServerSystem : SystemBase
                 var moveRpcArray = dropQuery.ToComponentDataArray<DropChessRpc>(Allocator.Temp);
                 var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
 
-              
-
                 if (RaycastSocket(moveRpc.rayFrom, moveRpc.rayTo, out Entity targetSocket) &&
                     SystemAPI.HasComponent<ChessSocketC>(targetSocket) &&
                     IsCorrectSocketToMove(targetSocket))
@@ -611,14 +629,14 @@ public partial class PlayerTurnServerSystem : SystemBase
         MovePieceFromToSocketReal(fromSocket, toSocket);
     }
 
-    private void MovePieceFromToSocketTemp(Entity fromSocket, Entity toSocket)
+    private bool MovePieceFromToSocketTemp(Entity fromSocket, Entity toSocket)
     {
-        prevMoveDataTemp = MovePieceToSocketData(fromSocket, toSocket);
+        return MovePieceToSocketData(fromSocket, toSocket, out prevMoveDataTemp);
     }
 
-    private void MovePieceFromToSocketReal(Entity fromSocket, Entity toSocket)
+    private bool MovePieceFromToSocketReal(Entity fromSocket, Entity toSocket)
     {
-        prevMoveDataReal = MovePieceToSocketData(fromSocket, toSocket);
+        return MovePieceToSocketData(fromSocket, toSocket, out prevMoveDataReal);
     }
 
     public struct PrevMoveData
@@ -640,14 +658,22 @@ public partial class PlayerTurnServerSystem : SystemBase
         public float3 toPos;
     }
 
-    private PrevMoveData MovePieceToSocketData(Entity fromSocket, Entity toSocket)
+    private bool MovePieceToSocketData(Entity fromSocket, Entity toSocket, out PrevMoveData saveData)
     {
+        saveData = new PrevMoveData();
         var pieceLinkFrom = SystemAPI.GetComponent<ChessSocketPieceLinkC>(fromSocket);
         var pieceLinkTo = SystemAPI.GetComponent<ChessSocketPieceLinkC>(toSocket);
 
         var pieceDataFrom = SystemAPI.GetComponent<ChessPieceC>(pieceLinkFrom.pieceE);
 
-        var prevMoveDataTemp = new PrevMoveData
+        //if (SystemAPI.HasComponent<ChessPieceC>(pieceLinkTo.pieceE))
+        //{
+        //    var pieceDataTo = SystemAPI.GetComponent<ChessPieceC>(pieceLinkTo.pieceE);
+        //    if (pieceDataFrom.isWhite == pieceDataTo.isWhite)
+        //        return false;
+        //}
+
+        saveData = new PrevMoveData
         {
             isValid = true,
             from = fromSocket,
@@ -661,9 +687,10 @@ public partial class PlayerTurnServerSystem : SystemBase
         if (SystemAPI.HasComponent<ChessPieceC>(pieceLinkTo.pieceE))
         {
             var pieceDataTo = SystemAPI.GetComponent<ChessPieceC>(pieceLinkTo.pieceE);
-            prevMoveDataTemp.pieceDataTo = pieceDataTo;
+
+            saveData.pieceDataTo = pieceDataTo;
             pieceDataTo.notActive = true;
-            prevMoveDataTemp.socketTo = SystemAPI.GetComponent<ChessSocketC>(pieceLinkTo.pieceE);
+            saveData.socketTo = SystemAPI.GetComponent<ChessSocketC>(pieceLinkTo.pieceE);
             SystemAPI.SetComponent<ChessSocketC>(pieceLinkTo.pieceE, SystemAPI.GetComponent<ChessSocketC>(fromSocket));
             SystemAPI.SetComponent<ChessPieceC>(pieceLinkTo.pieceE, pieceDataTo);
         }
@@ -681,13 +708,13 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieceLinkFrom.pieceE);
 
-        prevMoveDataTemp.fromPos = ltw.ValueRW.Position;
-        prevMoveDataTemp.toPos = SystemAPI.GetComponent<LocalTransform>(toSocket).Position;
+        saveData.fromPos = ltw.ValueRW.Position;
+        saveData.toPos = SystemAPI.GetComponent<LocalTransform>(toSocket).Position;
 
-        ltw.ValueRW.Position = prevMoveDataTemp.toPos;
+        ltw.ValueRW.Position = saveData.toPos;
         //Debug.Log($"move from {prevMoveData.fromPos} to {prevMoveData.toPos}");
 
-        return prevMoveDataTemp;
+        return true;
     }
 
     private void ResetPrevMoveData()
@@ -885,7 +912,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                     if (!isUnderAttack && checkSockets.Length != 0)
                     {
-                        MovePieceToSocketData(checkSockets[0], checkSockets[2]);
+                        MovePieceToSocketData(checkSockets[0], checkSockets[2], out _);
                     }
                 }
             }
@@ -1147,7 +1174,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             var data = GetPieceDataFromSlot(targetSocket.socketE);
             bool isWhiteTarget = data.isWhite;
-            if (canBeatEnemy && IsEnemy(isWhiteTarget, isWhiteSource))
+            if (canBeatEnemy && isWhiteTarget != isWhiteSource)
             {
                 isCanMove = true;
                 hasEnemy = true;
@@ -1179,11 +1206,6 @@ public partial class PlayerTurnServerSystem : SystemBase
     {
         var pieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(slot).pieceE;
         return SystemAPI.GetComponent<ChessPieceC>(pieceE);
-    }
-
-    private bool IsEnemy(bool isWhite, bool isWhite1)
-    {
-        return isWhite != isWhite1;
     }
 
     private bool HasPieceInSlot(Entity e)
