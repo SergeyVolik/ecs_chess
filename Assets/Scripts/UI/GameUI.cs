@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 public class GameUI : BaseGameUI
 {
-    public MenuUI menuUI;
+    public PlayOnlineUI menuUI;
 
     public static GameUI Instance { get; private set; }
 

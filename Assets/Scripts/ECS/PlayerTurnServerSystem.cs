@@ -119,12 +119,12 @@ public partial class PlayerTurnServerSystem : SystemBase
         var pieces = board.GetCurrentPlayerPieces();
 
         var allPiecesSteps =
-            new List<List<ChessPiecePossibleSteps>>();
+            new NativeList<NativeList<ChessPiecePossibleSteps>>(Allocator.Temp);
 
         for (int i = 0; i < pieces.Length; i++)
         {
             var pieceE = pieces[i];
-            var steps = new List<ChessPiecePossibleSteps>();
+            var steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
             if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(pieceE))
             {
                 var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE).ToNativeArray(Allocator.Temp);

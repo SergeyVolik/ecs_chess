@@ -24,7 +24,7 @@ public partial class CheckDisconnectSystem : SystemBase
             DOVirtual.DelayedCall(0.1f, () =>
             {
                 ConnectionManager.Instance.Disconnect();
-                MenuUI.Instance.Show();
+                PlayOnlineUI.Instance.Show();
             });       
         }
     }

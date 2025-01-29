@@ -67,7 +67,7 @@ public class ConnectionManager : MonoBehaviour
         Instance = this;
     }
 
-    public const string prodocol = "dtls";
+    public const string NETWORK_PROTOCOL = "dtls";
 
     public async Task ConnectToServer(string code, Action<Result> result)
     {
@@ -75,7 +75,7 @@ public class ConnectionManager : MonoBehaviour
         {
             await JointGameWithCode(code);
             m_Role = Role.Client;
-            ClientData = PlayerRelayData(m_JoinAllocation, prodocol);
+            ClientData = PlayerRelayData(m_JoinAllocation, NETWORK_PROTOCOL);
             StartCoroutine(ConnectECS(result));
         }
         catch (Exception ex)
@@ -147,7 +147,7 @@ public class ConnectionManager : MonoBehaviour
 
             m_Role = Role.ServerClient;
             ServerData = HostRelayData(m_HostAllocation);
-            ClientData = PlayerRelayData(m_JoinAllocation, prodocol);
+            ClientData = PlayerRelayData(m_JoinAllocation, NETWORK_PROTOCOL);
           
             StartCoroutine(ConnectECS(result));
         }

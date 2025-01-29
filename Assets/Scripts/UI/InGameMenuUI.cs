@@ -11,7 +11,7 @@ public class InGameMenuUI : BaseGameUI
     public TextMeshProUGUI enterCode;
 
     public GameUI gameUI;
-    public MenuUI menuUI;
+    public PlayOnlineUI menuUI;
 
     protected override void Awake()
     {

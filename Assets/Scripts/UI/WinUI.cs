@@ -7,7 +7,7 @@ public class WinUI : BaseGameUI
     
     public TextMeshProUGUI winText;
     public GameUI gameUi;
-    public MenuUI menuUi;
+    public PlayOnlineUI menuUi;
 
     public static WinUI Instance { get; private set; }
 

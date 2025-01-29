@@ -1,18 +1,20 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MenuUI : BaseGameUI
+public class PlayOnlineUI : BaseGameUI
 {
     public Button startServerButton;
     public Button connectToServerButton;
     public Button pasteButton;
-    public Button quitButton;
 
     public TMPro.TMP_InputField codeInput;
     public BaseGameUI gameUI;
     public CreateGameUI createGameUI;
+    public MainMenuUI mainMenuUI;
 
-    public static MenuUI Instance { get; private set; }
+    public Button returnButton;
+
+    public static PlayOnlineUI Instance { get; private set; }
 
     protected override void Awake()
     {
@@ -20,9 +22,10 @@ public class MenuUI : BaseGameUI
 
         Instance = this;
 
-        quitButton.onClick.AddListener(() =>
+        returnButton.onClick.AddListener(() =>
         {
-            Application.Quit();
+            mainMenuUI.Show();
+            Hide();
         });
 
         pasteButton.onClick.AddListener(() =>
