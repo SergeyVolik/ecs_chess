@@ -129,27 +129,17 @@ public partial class PlayerTurnServerSystem : SystemBase
             {
                 var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE).ToNativeArray(Allocator.Temp);
                 var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceE);
-                var type = SystemAPI.GetComponent<ChessPieceC>(pieceE).chessType;
-
-                Debug.Log($"[Server] recalculate moves {type}");
 
                 foreach (var item1 in stepsBefore)
                 {
-                    //Debug.Log($"[Server] {type} check move: " +
-                    //   $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
-                    //   $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
                     MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);
                    
                     RecalculatePossibleStepsForBoard(board);
 
                     bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
 
-                    //Debug.Log($"[Server] isKingUnderAttack: {isKingUnderAttack} isEnd: {IsGameFinished()}");
                     if (!isKingUnderAttack && !IsGameFinished())
                     {
-                        //Debug.Log($"[Server] {type} add move: " +
-                        //    $"{BoardPositions.horizontal[socketC.x]}{BoardPositions.vertical[socketC.y]} -> " +
-                        //    $"{BoardPositions.horizontal[item1.socketC.x]}{BoardPositions.vertical[item1.socketC.y]}");
                         steps.Add(item1);
                     }
 
@@ -342,7 +332,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         if (!grabQuery.IsEmpty)
         {
-            var granRpcArray = grabQuery.ToComponentDataArray<MoveChessRpc>(Allocator.Temp);
+            var granRpcArray = grabQuery.ToComponentDataArray<GrabChessRpc>(Allocator.Temp);
             var grabRpc = granRpcArray[granRpcArray.Length - 1];       
 
             if (RaycastSocket(grabRpc.rayFrom, grabRpc.rayTo, out Entity raycastedSocketE))
@@ -403,10 +393,10 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             if (hasSelectedSocket)
             {
-                var moveRpcArray = dropQuery.ToComponentDataArray<DropChessRpc>(Allocator.Temp);
-                var moveRpc = moveRpcArray[moveRpcArray.Length - 1];
+                var dropRpcArray = dropQuery.ToComponentDataArray<DropChessRpc>(Allocator.Temp);
+                var dropRpc = dropRpcArray[dropRpcArray.Length - 1];
 
-                if (RaycastSocket(moveRpc.rayFrom, moveRpc.rayTo, out Entity targetSocket) &&
+                if (RaycastSocket(dropRpc.rayFrom, dropRpc.rayTo, out Entity targetSocket) &&
                     SystemAPI.HasComponent<ChessSocketC>(targetSocket) &&
                     IsCorrectSocketToMove(targetSocket))
                 {

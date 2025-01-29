@@ -16,7 +16,7 @@ public struct ChessPlayerC : IComponentData
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-public partial struct GonInGameServerSystem : ISystem
+public partial struct GoInGameServerSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
@@ -38,13 +38,13 @@ public partial struct GonInGameServerSystem : ISystem
             {
                 TargetConnection = request.ValueRO.SourceConnection
             });
-            bool hasWhite= false;
+            bool hasWhite = false;
             bool hasBlack = false;
             foreach (var item in SystemAPI.Query<ChessPlayerC>())
             {
                 if (item.isWhite)
                 {
-                    hasWhite= true;
+                    hasWhite = true;
                 }
                 else
                 {

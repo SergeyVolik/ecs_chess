@@ -30,7 +30,7 @@ public class CreateGameUI : BaseGameUI
 
         goToGameButton.onClick.AddListener(() =>
         {
-            ConnectionManager.Instance.EnableInput();
+            GameManager.Instance.EnableInput();
             gameUI.Show();
             Hide();
         });

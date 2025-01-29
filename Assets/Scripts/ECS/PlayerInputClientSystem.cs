@@ -41,7 +41,7 @@ public partial class PlayerInputClientSystem : SystemBase
 
             bool turnIsWhite = turn.isWhite;
 
-            if (turnIsWhite != playerData.isWhite)
+            if (GameManager.Instance.GameMode != GameMode.Solo && turnIsWhite != playerData.isWhite)
                 return;
 
             var ray = CameraController.Instance.GetCamera().ScreenPointToRay(Input.mousePosition);

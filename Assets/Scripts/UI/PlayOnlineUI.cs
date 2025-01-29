@@ -34,8 +34,9 @@ public class PlayOnlineUI : BaseGameUI
         });
 
         startServerButton.onClick.AddListener(() =>
-        {       
-            ConnectionManager.Instance.CreateClientServer((result) => {
+        {
+            GameManager.Instance.CreateOnlineGame((result) =>
+            {
 
                 DisableInput();
                 if (result == Result.Failed)
@@ -48,14 +49,14 @@ public class PlayOnlineUI : BaseGameUI
                 EnableInput();
                 Hide();
                 createGameUI.Show(ConnectionManager.Instance.JoinCode);
-            });         
+            });
         });
 
-        connectToServerButton.onClick.AddListener(async () =>
+        connectToServerButton.onClick.AddListener(() =>
         {
             DisableInput();
 
-            await ConnectionManager.Instance.ConnectToServer(codeInput.text, (result) =>
+            GameManager.Instance.ConnectOnlineGame(codeInput.text, (result) =>
             {
                 EnableInput();
 
@@ -63,7 +64,7 @@ public class PlayOnlineUI : BaseGameUI
                 {
                     Hide();
                     gameUI.Show();
-                    ConnectionManager.Instance.EnableInput();
+                    GameManager.Instance.EnableInput();
                 }
             });
         });
