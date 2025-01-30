@@ -8,16 +8,9 @@ public class MainMenuUI : BaseGameUI
     public Button playSoloButton;
     public Button playVsBotButton;
 
-    public PlayOnlineUI playOnlineUI;
-    public GameUI gameUI;
-
-    public static MainMenuUI Instance { get; private set; }
-
     protected override void Awake()
     {
         base.Awake();
-
-        Instance = this;
 
         quitButton.onClick.AddListener(() =>
         {
@@ -27,14 +20,14 @@ public class MainMenuUI : BaseGameUI
         playOnlineButton.onClick.AddListener(() =>
         {
             Hide();
-            playOnlineUI.Show();
+            UIPages.Instance.playOnline.Show();
         });
 
         playSoloButton.onClick.AddListener(() =>
         {
             GameManager.Instance.PlaySolo((_) => {
                 Hide();
-                gameUI.Show();
+                UIPages.Instance.gameUi.Show();
             });      
         });
 

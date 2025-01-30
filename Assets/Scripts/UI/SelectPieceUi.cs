@@ -31,8 +31,6 @@ public class SelectPieceUi : BaseGameUI
     public GameObject blackGroup;
     public GameObject whiteGroup;
 
-    public GameUI gameUi;
-
     public static SelectPieceUi Instance { get; private set; }
 
     protected override void Awake()
@@ -52,8 +50,8 @@ public class SelectPieceUi : BaseGameUI
         {
             item.onClick.AddListener(() =>
             {
+                UIPages.Instance.gameUi.Show();
                 Hide();
-                gameUi.Show();
                 RequestTransformationToServer(type);
             });
         }
@@ -74,7 +72,6 @@ public class SelectPieceUi : BaseGameUI
     public void Show(bool isWhite)
     {
         Show();
-        gameUi.Hide();
         blackGroup.SetActive(!isWhite);
         whiteGroup.SetActive(isWhite);
     }

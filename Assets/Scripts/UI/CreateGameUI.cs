@@ -9,16 +9,13 @@ public class CreateGameUI : BaseGameUI
     public Button copyCode;
     public Button returnButton;
 
-    public GameUI gameUI;
-    public BaseGameUI menuUI;
-
     protected override void Awake()
     {
         base.Awake();
 
         returnButton.onClick.AddListener(() =>
         {
-            menuUI.Show();
+            UIPages.Instance.mainMenu.Show();
             Hide();
             ConnectionManager.Instance.Disconnect();
         });
@@ -31,7 +28,7 @@ public class CreateGameUI : BaseGameUI
         goToGameButton.onClick.AddListener(() =>
         {
             GameManager.Instance.EnableInput();
-            gameUI.Show();
+            UIPages.Instance.gameUi.Show();
             Hide();
         });
     }

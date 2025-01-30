@@ -14,13 +14,9 @@ public class PlayOnlineUI : BaseGameUI
 
     public Button returnButton;
 
-    public static PlayOnlineUI Instance { get; private set; }
-
     protected override void Awake()
     {
         base.Awake();
-
-        Instance = this;
 
         returnButton.onClick.AddListener(() =>
         {

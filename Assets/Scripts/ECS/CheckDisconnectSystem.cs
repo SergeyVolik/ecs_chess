@@ -37,7 +37,7 @@ public partial class CheckDisconnectSystem : SystemBase
         DOVirtual.DelayedCall(0.1f, () =>
         {
             ConnectionManager.Instance.Disconnect();
-            MainMenuUI.Instance.Show();
+            UIPages.Instance.mainMenu.Show();
         });
     }
 }

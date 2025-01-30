@@ -10,7 +10,7 @@ public partial class OpenWinUIClientSystem : SystemBase
         foreach (var (rpc, entity) in SystemAPI.Query<EndGameRPC>().WithAll<ReceiveRpcCommandRequest>().WithEntityAccess())
         {
             ecb.DestroyEntity(entity);
-            WinUI.Instance.ShowWin(rpc.isWhiteWin ? "White Win!" : "Black Win!");
+            UIPages.Instance.winUi.ShowWin(rpc.isWhiteWin ? "White Win!" : "Black Win!");
         }
         ecb.Playback(EntityManager);
     }
