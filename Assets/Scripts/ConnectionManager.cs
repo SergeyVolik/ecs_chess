@@ -13,7 +13,6 @@ using Unity.Services.Authentication;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Networking.Transport.Relay;
-using Unity.Collections;
 
 public enum Result
 {
@@ -34,8 +33,6 @@ public static class RelayUtilities
 
 public class ConnectionManager : MonoBehaviour
 {
-    private Role m_Role;
-
     public static World ServerWorld;
     public static World ClientWorld;
     private Allocation m_HostAllocation;
@@ -47,10 +44,6 @@ public class ConnectionManager : MonoBehaviour
     public static ConnectionManager Instance { get; private set; }
     public RelayServerData ServerData { get; private set; }
     public RelayServerData ClientData { get; private set; }
-    public enum Role
-    {
-        ServerClient, Server, Client
-    }
 
     const ushort LOCAL_HOST_PORT = 7979;
     public const string NETWORK_PROTOCOL = "dtls";
@@ -60,7 +53,7 @@ public class ConnectionManager : MonoBehaviour
         await UnityServices.InitializeAsync();
         await SignIn();
     }
-   
+
     private void Start()
     {
         Instance = this;
@@ -77,19 +70,316 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             await JointGameWithCode(code);
-            m_Role = Role.Client;
+
             ClientData = PlayerRelayData(m_JoinAllocation, NETWORK_PROTOCOL);
-            StartCoroutine(ConnectECS(
+            StartCoroutine(ConnectToRelayServer(
                 result,
-                new RelayDriverConstructor(new RelayServerData(), ClientData),
-                null, 
-                ClientData.Endpoint,
-                NetworkEndpoint.AnyIpv4));
+                ClientData));
         }
         catch (Exception ex)
         {
             Debug.LogException(ex);
             result?.Invoke(Result.Failed);
+        }
+    }
+
+    public async void CreateClientServerRelay(Action<Result> resultCallback)
+    {
+        try
+        {
+            await AllocateHost();
+            await RequestJoinCode();
+            await JointGameWithCode(JoinCode);
+
+            ServerData = HostRelayData(m_HostAllocation);
+            ClientData = PlayerRelayData(m_JoinAllocation, NETWORK_PROTOCOL);
+
+            StartCoroutine(SetupRelayHostedServerAndConnect(
+                resultCallback,
+                ClientData,
+                ServerData));
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            resultCallback?.Invoke(Result.Failed);
+        }
+    }
+    internal void CreateClientServerLocalHost(Action<Result> resultCallback)
+    {
+        StartCoroutine(SetupLocalHostedServerAndConnect(resultCallback));
+    }
+
+    internal void ConnectToServerLocalHost(Action<Result> resultCallback)
+    {
+        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
+        StartCoroutine(ConnectToLocalServer(resultCallback));
+    }
+
+    /// <summary>
+    /// Event handler for when the Join button is clicked.
+    /// </summary>
+    private async Task JointGameWithCode(string code)
+    {
+        Debug.Log("Player - Joining host allocation using join code.");
+
+        try
+        {
+            m_JoinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
+            Debug.Log("Player Allocation ID: " + m_JoinAllocation.AllocationId);
+        }
+        catch (RelayServiceException ex)
+        {
+            Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+        }
+    }
+
+    private async Task RequestJoinCode()
+    {
+        Debug.Log("Host - Getting a join code for my allocation. I would share that join code with the other players so they can join my session.");
+
+        try
+        {
+            JoinCode = await RelayService.Instance.GetJoinCodeAsync(m_HostAllocation.AllocationId);
+            Debug.Log("Host - Got join code: " + JoinCode);
+        }
+        catch (RelayServiceException ex)
+        {
+            Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+        }
+    }
+
+    private async Task AllocateHost()
+    {
+        Debug.Log("Host - Creating an allocation.");
+
+        // Important: Once the allocation is created, you have ten seconds to BIND
+        m_HostAllocation = await RelayService.Instance.CreateAllocationAsync(2, null);
+
+        Debug.Log($"Host Allocation ID: {m_HostAllocation.AllocationId}, region: {m_HostAllocation.Region}");
+    }
+
+    public void Disconnect()
+    {
+        DisposeServerClientWorlds();
+    }
+
+    private void DisposeServerClientWorlds()
+    {
+        var clientServerWorlds = new List<World>();
+        foreach (var world in World.All)
+        {
+            if (world.IsClient() || world.IsServer())
+                clientServerWorlds.Add(world);
+        }
+
+        foreach (var world in clientServerWorlds)
+            world.Dispose();
+    }
+
+
+    IEnumerator ConnectToLocalServer(Action<Result> result)
+    {
+        DisposeDefaultWorld();
+
+        ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
+
+        World.DefaultGameObjectInjectionWorld = ClientWorld;
+
+        NetworkEndpoint ep = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
+        {
+            var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
+
+            ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
+            // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
+            // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
+            ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = ep });
+        }
+
+
+        SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        yield return LoadScenes(ClientWorld, subeScenes);
+
+        result?.Invoke(Result.Success);
+    }
+
+    IEnumerator SetupLocalHostedServerAndConnect(Action<Result> result)
+    {
+        DisposeDefaultWorld();
+
+        ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
+        ServerWorld = ClientServerBootstrap.CreateServerWorld("ServerWorld");
+
+        World.DefaultGameObjectInjectionWorld = ServerWorld;
+
+        NetworkEndpoint ep = NetworkEndpoint.AnyIpv4.WithPort(LOCAL_HOST_PORT);
+        {
+            using var drvQuery = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
+            drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(ep);
+        }
+
+        ep = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
+        {
+            using var drvQuery = ClientWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
+            drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(ClientWorld.EntityManager, ep);
+        }
+
+        SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        yield return LoadScenes(ServerWorld, subeScenes);
+        yield return LoadScenes(ClientWorld, subeScenes);
+
+        result?.Invoke(Result.Success);
+    }
+
+    IEnumerator SetupRelayHostedServerAndConnect(Action<Result> result,
+        RelayServerData client,
+        RelayServerData server)
+    {
+        DisposeDefaultWorld();
+
+        var oldConstructor = NetworkStreamReceiveSystem.DriverConstructor;
+
+        NetworkStreamReceiveSystem.DriverConstructor = new RelayDriverConstructor(server, client);
+        ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
+        ServerWorld = ClientServerBootstrap.CreateServerWorld("ServerWorld");
+        NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
+        World.DefaultGameObjectInjectionWorld = ServerWorld;
+        var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
+
+        ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
+        // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
+        // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
+        ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = client.Endpoint });
+
+
+        World.DefaultGameObjectInjectionWorld = ServerWorld;
+
+        var networkStreamEntity1 = ServerWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestListen>());
+        ServerWorld.EntityManager.SetName(networkStreamEntity1, "NetworkStreamRequestListen");
+        ServerWorld.EntityManager.SetComponentData(networkStreamEntity1, new NetworkStreamRequestListen { Endpoint = NetworkEndpoint.AnyIpv4 });
+
+
+        SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        yield return LoadScenes(ServerWorld, subeScenes);
+        yield return LoadScenes(ClientWorld, subeScenes);
+
+        result?.Invoke(Result.Success);
+    }
+
+    IEnumerator ConnectToRelayServer(Action<Result> result, RelayServerData client)
+    {
+        DisposeDefaultWorld();
+
+        var oldConstructor = NetworkStreamReceiveSystem.DriverConstructor;
+
+        NetworkStreamReceiveSystem.DriverConstructor = new RelayDriverConstructor(new RelayServerData(), client);
+        ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
+        NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
+        World.DefaultGameObjectInjectionWorld = ClientWorld;
+
+        var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
+
+        ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
+        // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
+        // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
+        ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = client.Endpoint });
+
+        SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        yield return LoadScenes(ClientWorld, subeScenes);
+
+        result?.Invoke(Result.Success);
+    }
+
+    //private IEnumerator ConnectWorldsECS(
+    //Action<Result> result,
+    //INetworkStreamDriverConstructor client,
+    //INetworkStreamDriverConstructor server,
+    //NetworkEndpoint clientEndpoint,
+    //NetworkEndpoint serverEndpoint)
+    //{
+    //    DisposeDefaultWorld();
+
+    //    var oldConstructor = NetworkStreamReceiveSystem.DriverConstructor;
+
+    //    if (m_Role == Role.ServerClient || m_Role == Role.Client)
+    //    {
+    //        NetworkStreamReceiveSystem.DriverConstructor = client;
+    //        ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
+    //        NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
+    //        World.DefaultGameObjectInjectionWorld = ClientWorld;
+    //        var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
+    //        ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
+    //        // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
+    //        // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
+    //        ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = clientEndpoint });
+    //    }
+
+    //    if (m_Role == Role.ServerClient || m_Role == Role.Server)
+    //    {
+    //        NetworkStreamReceiveSystem.DriverConstructor = server;
+    //        ServerWorld = ClientServerBootstrap.CreateServerWorld("ServerWorld");
+    //        NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
+    //        World.DefaultGameObjectInjectionWorld = ServerWorld;
+
+    //        var networkStreamEntity = ServerWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestListen>());
+    //        ServerWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestListen");
+    //        ServerWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestListen { Endpoint = serverEndpoint });
+    //    }
+
+    //    SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+    //    if (ServerWorld != null)
+    //    {
+    //        yield return LoadScenes(ServerWorld, subeScenes);
+    //    }
+
+    //    if (ClientWorld != null)
+    //    {
+    //        yield return LoadScenes(ClientWorld, subeScenes);
+    //    }
+
+    //    result?.Invoke(Result.Success);
+    //}
+
+    private static void DisposeDefaultWorld()
+    {
+        foreach (var world in World.All)
+        {
+            if (world.Flags == WorldFlags.Game)
+            {
+                world.Dispose();
+                break;
+            }
+        }
+    }
+
+    private IEnumerator LoadScenes(World world, SubScene[] subeScenes)
+    {
+        if (world != null)
+        {
+            while (!world.IsCreated)
+            {
+                yield return null;
+            }
+
+            for (int i = 0; i < subeScenes.Length; i++)
+            {
+                SceneSystem.LoadParameters loadParams = new SceneSystem.LoadParameters() { Flags = SceneLoadFlags.BlockOnStreamIn };
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, new Unity.Entities.Hash128(subeScenes[i].SceneGUID.Value), loadParams);
+
+                while (!SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity))
+                {
+                    world.Update();
+                }
+            }
         }
     }
 
@@ -144,249 +434,8 @@ public class ConnectionManager : MonoBehaviour
 
         return relayServerData;
     }
-
-    public async void CreateClientServerRelay(Action<Result> resultCallback)
-    {
-        try
-        {
-            await AllocateHost();
-            await RequestJoinCode();
-            await JointGameWithCode(JoinCode);
-
-            m_Role = Role.ServerClient;
-            ServerData = HostRelayData(m_HostAllocation);
-            ClientData = PlayerRelayData(m_JoinAllocation, NETWORK_PROTOCOL);
-
-            StartCoroutine(ConnectECS(
-                resultCallback,
-                new RelayDriverConstructor(new RelayServerData(), ClientData),
-                new RelayDriverConstructor(ServerData, ClientData),
-                ClientData.Endpoint,
-                NetworkEndpoint.AnyIpv4));
-        }
-        catch (Exception ex)
-        {
-            Debug.LogException(ex);
-            resultCallback?.Invoke(Result.Failed);
-        }
-    }
-
-    /// <summary>
-    /// Event handler for when the Join button is clicked.
-    /// </summary>
-    private async Task JointGameWithCode(string code)
-    {
-        Debug.Log("Player - Joining host allocation using join code.");
-
-        try
-        {
-            m_JoinAllocation = await RelayService.Instance.JoinAllocationAsync(code);
-            Debug.Log("Player Allocation ID: " + m_JoinAllocation.AllocationId);
-        }
-        catch (RelayServiceException ex)
-        {
-            Debug.LogError(ex.Message + "\n" + ex.StackTrace);
-        }
-    }
-
-    private async Task RequestJoinCode()
-    {
-        Debug.Log("Host - Getting a join code for my allocation. I would share that join code with the other players so they can join my session.");
-
-        try
-        {
-            JoinCode = await RelayService.Instance.GetJoinCodeAsync(m_HostAllocation.AllocationId);
-            Debug.Log("Host - Got join code: " + JoinCode);
-        }
-        catch (RelayServiceException ex)
-        {
-            Debug.LogError(ex.Message + "\n" + ex.StackTrace);
-        }
-    }
-
-    private async Task AllocateHost()
-    {
-        Debug.Log("Host - Creating an allocation.");
-
-        // Important: Once the allocation is created, you have ten seconds to BIND
-        m_HostAllocation = await RelayService.Instance.CreateAllocationAsync(2, null);
-
-        Debug.Log($"Host Allocation ID: {m_HostAllocation.AllocationId}, region: {m_HostAllocation.Region}");
-    }
-
-    private void DisconnectFromWorld(World world)
-    {
-        if (world != null)
-        {
-            var query = world.EntityManager.CreateEntityQuery(typeof(NetworkId));
-            var array = query.ToEntityArray(Allocator.Temp);
-
-            foreach (var item in array)
-            {
-                world.EntityManager.AddComponentData<NetworkStreamRequestDisconnect>(item, new NetworkStreamRequestDisconnect
-                {
-                     Reason = NetworkStreamDisconnectReason.ConnectionClose
-                });
-            }
-        }
-    }
-
-    public void Disconnect()
-    {
-        //StartCoroutine(Disconnect_CO());
-        //DiconnectDrives();
-        DisposeServerClientWorlds();
-    }
-
-    private IEnumerator Disconnect_CO()
-    {
-        DisconnectFromWorld(ServerWorld);
-        DisconnectFromWorld(ClientWorld);
-        yield return null;
-        DisposeServerClientWorlds();
-    }
-
-    private void DisposeServerClientWorlds()
-    {
-        foreach (var world in World.All)
-        {
-            if (world.Flags == WorldFlags.GameClient || world.Flags == WorldFlags.GameThinClient || world.Flags == WorldFlags.GameServer)
-            {
-                world.Dispose();
-                break;
-            }
-        }
-    }
-
-    private IEnumerator ConnectECS(
-        Action<Result> result,
-        INetworkStreamDriverConstructor client,
-        INetworkStreamDriverConstructor server,
-        NetworkEndpoint clientEndpoint,
-        NetworkEndpoint serverEndpoint)
-    {
-        DisposeDefaultWorld();
-
-        var oldConstructor = NetworkStreamReceiveSystem.DriverConstructor;
-
-        if (m_Role == Role.ServerClient || m_Role == Role.Client)
-        {
-            NetworkStreamReceiveSystem.DriverConstructor = client;
-            ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
-            NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
-
-            World.DefaultGameObjectInjectionWorld = ClientWorld;
-            var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
-            ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
-            // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
-            // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
-            ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = clientEndpoint });
-        }
-
-        if (m_Role == Role.ServerClient || m_Role == Role.Server)
-        {
-            NetworkStreamReceiveSystem.DriverConstructor = server;
-            ServerWorld = ClientServerBootstrap.CreateServerWorld("ServerWorld");
-            NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
-
-            World.DefaultGameObjectInjectionWorld = ServerWorld;
-
-            var networkStreamEntity = ServerWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestListen>());
-            ServerWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestListen");
-            ServerWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestListen { Endpoint = serverEndpoint });
-        }
-
-        SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-
-        if (ServerWorld != null)
-        {
-            yield return LoadScenes(ServerWorld, subeScenes);
-        }
-
-        if (ClientWorld != null)
-        {
-            yield return LoadScenes(ClientWorld, subeScenes);
-        }
-
-        result?.Invoke(Result.Success);
-    }
-
-    private static void DisposeDefaultWorld()
-    {
-        foreach (var world in World.All)
-        {
-            if (world.Flags == WorldFlags.Game)
-            {
-                world.Dispose();
-                break;
-            }
-        }
-    }
-
-    private IEnumerator LoadScenes(World world, SubScene[] subeScenes)
-    {
-        if (world != null)
-        {
-            while (!world.IsCreated)
-            {
-                yield return null;
-            }
-
-            for (int i = 0; i < subeScenes.Length; i++)
-            {
-                SceneSystem.LoadParameters loadParams = new SceneSystem.LoadParameters() { Flags = SceneLoadFlags.BlockOnStreamIn };
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, new Unity.Entities.Hash128(subeScenes[i].SceneGUID.Value), loadParams);
-
-                while (!SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity))
-                {
-                    world.Update();
-                }
-            }
-        }
-    }
-
-    void DiconnectDrives()
-    {
-        using var query = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-        using var query1 = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamConnection>());
-
-        var driver = query.GetSingletonRW<NetworkStreamDriver>().ValueRW;
-        var connections = query1.ToComponentDataArray<NetworkStreamConnection>(Allocator.Temp);
-        foreach (var item in connections)
-        {
-            for (int i = driver.DriverStore.FirstDriver; i < driver.DriverStore.LastDriver; ++i)
-            {
-                ref var driverInstance = ref driver.DriverStore.GetDriverInstanceRW(i);
-                driverInstance.driver.Disconnect(item.Value);
-            }
-        }     
-    }
-
-    internal void CreateClientServerLocalHost(Action<Result> resultCallback)
-    {
-        m_Role = Role.ServerClient;
-
-        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
-        StartCoroutine(ConnectECS(
-              resultCallback,
-               NetworkStreamReceiveSystem.DriverConstructor,
-               NetworkStreamReceiveSystem.DriverConstructor,
-             endPoint,
-             endPoint));
-    }
-
-    internal void ConnectToServerLocalHost(Action<Result> resultCallback)
-    {
-        m_Role = Role.Client;
-        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
-        StartCoroutine(ConnectECS(
-              resultCallback,
-               NetworkStreamReceiveSystem.DriverConstructor,
-               NetworkStreamReceiveSystem.DriverConstructor,
-              endPoint,
-              endPoint));
-    }
 }
+
 /// <summary>
 /// Register client and server using relay server settings.
 ///
