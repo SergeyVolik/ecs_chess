@@ -1,4 +1,5 @@
 using System;
+using Unity.NetCode;
 using UnityEngine;
 
 public enum GameMode
@@ -48,5 +49,17 @@ public class GameManager : MonoBehaviour
     {
         var e = ConnectionManager.ClientWorld.EntityManager.CreateEntity();
         ConnectionManager.ClientWorld.EntityManager.AddComponent<EnablePlayerInputT>(e);
+    }
+
+    internal void DisableInput()
+    {
+        var em = ConnectionManager.ClientWorld.EntityManager;
+        var query = em.CreateEntityQuery(typeof(EnablePlayerInputT));
+
+        if (query.HasSingleton<EnablePlayerInputT>())
+        {
+            var entity = query.GetSingletonEntity();
+            em.DestroyEntity(entity);
+        }
     }
 }

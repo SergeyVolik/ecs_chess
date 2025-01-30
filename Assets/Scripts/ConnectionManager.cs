@@ -13,6 +13,7 @@ using Unity.Services.Authentication;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Networking.Transport.Relay;
+using Unity.Collections;
 
 public enum Result
 {
@@ -51,6 +52,9 @@ public class ConnectionManager : MonoBehaviour
         ServerClient, Server, Client
     }
 
+    const ushort LOCAL_HOST_PORT = 7979;
+    public const string NETWORK_PROTOCOL = "dtls";
+
     private async void Awake()
     {
         await UnityServices.InitializeAsync();
@@ -61,12 +65,12 @@ public class ConnectionManager : MonoBehaviour
     {
         Instance = this;
     }
+
     public async Task SignIn()
     {
         await AuthenticationService.Instance.SignInAnonymouslyAsync();
         Debug.Log($"Signed in. Player ID: {AuthenticationService.Instance.PlayerId}");
     }
-    public const string NETWORK_PROTOCOL = "dtls";
 
     public async void ConnectToServer(string code, Action<Result> result)
     {
@@ -210,7 +214,39 @@ public class ConnectionManager : MonoBehaviour
         Debug.Log($"Host Allocation ID: {m_HostAllocation.AllocationId}, region: {m_HostAllocation.Region}");
     }
 
+    private void DisconnectFromWorld(World world)
+    {
+        if (world != null)
+        {
+            var query = world.EntityManager.CreateEntityQuery(typeof(NetworkId));
+            var array = query.ToEntityArray(Allocator.Temp);
+
+            foreach (var item in array)
+            {
+                world.EntityManager.AddComponentData<NetworkStreamRequestDisconnect>(item, new NetworkStreamRequestDisconnect
+                {
+                     Reason = NetworkStreamDisconnectReason.ConnectionClose
+                });
+            }
+        }
+    }
+
     public void Disconnect()
+    {
+        //StartCoroutine(Disconnect_CO());
+        //DiconnectDrives();
+        DisposeServerClientWorlds();
+    }
+
+    private IEnumerator Disconnect_CO()
+    {
+        DisconnectFromWorld(ServerWorld);
+        DisconnectFromWorld(ClientWorld);
+        yield return null;
+        DisposeServerClientWorlds();
+    }
+
+    private void DisposeServerClientWorlds()
     {
         foreach (var world in World.All)
         {
@@ -238,7 +274,13 @@ public class ConnectionManager : MonoBehaviour
             NetworkStreamReceiveSystem.DriverConstructor = client;
             ClientWorld = ClientServerBootstrap.CreateClientWorld("ClientWorld");
             NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
             World.DefaultGameObjectInjectionWorld = ClientWorld;
+            var networkStreamEntity = ClientWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestConnect>());
+            ClientWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestConnect");
+            // For IPC this will not work and give an error in the transport layer. For this sample we force the client to connect through the relay service.
+            // For a locally hosted server, the client would need to connect to NetworkEndpoint.AnyIpv4, and the relayClientData.Endpoint in all other cases.
+            ClientWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestConnect { Endpoint = clientEndpoint });
         }
 
         if (m_Role == Role.ServerClient || m_Role == Role.Server)
@@ -246,19 +288,24 @@ public class ConnectionManager : MonoBehaviour
             NetworkStreamReceiveSystem.DriverConstructor = server;
             ServerWorld = ClientServerBootstrap.CreateServerWorld("ServerWorld");
             NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
+
             World.DefaultGameObjectInjectionWorld = ServerWorld;
+
+            var networkStreamEntity = ServerWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<NetworkStreamRequestListen>());
+            ServerWorld.EntityManager.SetName(networkStreamEntity, "NetworkStreamRequestListen");
+            ServerWorld.EntityManager.SetComponentData(networkStreamEntity, new NetworkStreamRequestListen { Endpoint = serverEndpoint });
         }
 
         SubScene[] subeScenes = FindObjectsByType<SubScene>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
         if (ServerWorld != null)
         {
-            yield return SetupServerWorld(subeScenes, serverEndpoint);
+            yield return LoadScenes(ServerWorld, subeScenes);
         }
 
         if (ClientWorld != null)
         {
-            yield return SetupClientWorld(subeScenes, clientEndpoint);
+            yield return LoadScenes(ClientWorld, subeScenes);
         }
 
         result?.Invoke(Result.Success);
@@ -298,25 +345,28 @@ public class ConnectionManager : MonoBehaviour
         }
     }
 
-    private IEnumerator SetupServerWorld(SubScene[] subeScenes, NetworkEndpoint serverEndpoint)
+    void DiconnectDrives()
     {
-        yield return LoadScenes(ServerWorld, subeScenes);
         using var query = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-        query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(serverEndpoint);
-    }
+        using var query1 = ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamConnection>());
 
-    private IEnumerator SetupClientWorld(SubScene[] subeScenes, NetworkEndpoint clientEndpoint)
-    {
-        yield return LoadScenes(ClientWorld, subeScenes);
-        using var query = ClientWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-        query.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(ClientWorld.EntityManager, clientEndpoint);
+        var driver = query.GetSingletonRW<NetworkStreamDriver>().ValueRW;
+        var connections = query1.ToComponentDataArray<NetworkStreamConnection>(Allocator.Temp);
+        foreach (var item in connections)
+        {
+            for (int i = driver.DriverStore.FirstDriver; i < driver.DriverStore.LastDriver; ++i)
+            {
+                ref var driverInstance = ref driver.DriverStore.GetDriverInstanceRW(i);
+                driverInstance.driver.Disconnect(item.Value);
+            }
+        }     
     }
 
     internal void CreateClientServerLocalHost(Action<Result> resultCallback)
     {
         m_Role = Role.ServerClient;
 
-        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(7999);
+        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
         StartCoroutine(ConnectECS(
               resultCallback,
                NetworkStreamReceiveSystem.DriverConstructor,
@@ -325,10 +375,10 @@ public class ConnectionManager : MonoBehaviour
              endPoint));
     }
 
-    internal void ConnectServerLocalHost(Action<Result> resultCallback)
+    internal void ConnectToServerLocalHost(Action<Result> resultCallback)
     {
         m_Role = Role.Client;
-        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(7999);
+        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(LOCAL_HOST_PORT);
         StartCoroutine(ConnectECS(
               resultCallback,
                NetworkStreamReceiveSystem.DriverConstructor,

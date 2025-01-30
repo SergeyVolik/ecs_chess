@@ -11,7 +11,7 @@ public class InGameMenuUI : BaseGameUI
     public TextMeshProUGUI enterCode;
 
     public GameUI gameUI;
-    public PlayOnlineUI menuUI;
+    public MainMenuUI menuUI;
 
     protected override void Awake()
     {
@@ -38,12 +38,14 @@ public class InGameMenuUI : BaseGameUI
     private void Continue()
     {
         Hide();
+        GameManager.Instance.EnableInput();
         gameUI.Show();
     }
 
     public override void Show()
     {
         base.Show();
+        GameManager.Instance.DisableInput();
         enterCode.text = ConnectionManager.Instance.JoinCode;
     }
 

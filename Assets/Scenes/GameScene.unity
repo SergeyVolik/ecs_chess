@@ -3306,7 +3306,7 @@ MonoBehaviour:
   copyButton: {fileID: 2106671222}
   enterCode: {fileID: 809315143}
   gameUI: {fileID: 1523177116}
-  menuUI: {fileID: 934615807}
+  menuUI: {fileID: 1539757927}
 --- !u!1001 &855753797
 PrefabInstance:
   m_ObjectHideFlags: 0

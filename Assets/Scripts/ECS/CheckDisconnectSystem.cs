@@ -6,11 +6,17 @@ using Unity.NetCode;
 public partial class CheckDisconnectSystem : SystemBase
 {
     float t;
+    bool hadConnection = false;
     protected override void OnUpdate()
     {
-
         var hasConnection = !SystemAPI.QueryBuilder().WithAll<NetworkId, NetworkStreamInGame>().Build().IsEmpty;
 
+        if (hadConnection == false && hasConnection == true)
+            hadConnection = true;
+
+        if (!hadConnection)
+            return;
+       
         t += SystemAPI.Time.DeltaTime;
 
         if (hasConnection)
@@ -21,11 +27,17 @@ public partial class CheckDisconnectSystem : SystemBase
         if (t > 5)
         {
             t = 0;
-            DOVirtual.DelayedCall(0.1f, () =>
-            {
-                ConnectionManager.Instance.Disconnect();
-                MainMenuUI.Instance.Show();
-            });       
+            Diconnect();
         }
+        
+    }
+
+    private static void Diconnect()
+    {
+        DOVirtual.DelayedCall(0.1f, () =>
+        {
+            ConnectionManager.Instance.Disconnect();
+            MainMenuUI.Instance.Show();
+        });
     }
 }
