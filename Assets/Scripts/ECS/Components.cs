@@ -93,7 +93,16 @@ public struct ChessPiecePossibleSteps : IBufferElementData
 {
     [GhostField] public ChessSocketC socketC;
     [GhostField] public bool hasEnemy;
+
     [GhostField] public bool is—astling;
+    [GhostField] public —astlingData castlingMove; 
+}
+
+[System.Serializable]
+public struct —astlingData
+{
+    public ChessSocketC kingMoveTo;
+    public ChessSocketC rookMoveTo;
 }
 
 public struct ChessSocketSelectedT : IComponentData

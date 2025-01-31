@@ -22,6 +22,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         public int fromIndex;
         public int toIndex;
     }
+
     public struct SavedPieceTransformationData
     {
         public Entity socket;
@@ -36,13 +37,14 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     public PrevMoveData prevMoveDataTemp;
 
-    public PrevMoveData prevMoveDataReal;
+    public NativeList<PrevMoveData> m_PrevRealMoves;
 
     public SavedPieceTransformationData requireTransformData;
     protected override void OnCreate()
     {
         base.OnCreate();
         RequireForUpdate<ChessBoardInstanceT>();
+        m_PrevRealMoves = new NativeList<PrevMoveData>(Allocator.Persistent);
     }
 
     protected override void OnDestroy()
@@ -132,8 +134,13 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                 foreach (var item1 in stepsBefore)
                 {
+                    if (item1.isÑastling)
+                    {
+                        steps.Add(item1);
+                        continue;
+                    }
+
                     MovePieceFromToSocketTemp(socketC.socketE, item1.socketC.socketE);
-                   
                     RecalculatePossibleStepsForBoard(board);
 
                     bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
@@ -145,7 +152,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
                     ResetPrevMoveData();
                     RecalculatePossibleStepsForBoard(board);
-                    
+
                 }
             }
 
@@ -205,7 +212,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             {
                 var highlight = SystemAPI.GetAspect<ChessSocketHighlightAspect>(turn.socketC.socketE);
 
-                if (turn.hasEnemy)
+                if (turn.hasEnemy || turn.isÑastling)
                 {
                     highlight.ShowEnemy(ecb);
                 }
@@ -215,14 +222,6 @@ public partial class PlayerTurnServerSystem : SystemBase
                 }
             }
         }
-    }
-
-    bool CanMoveChess(Entity raycastedSocketE, EntityCommandBuffer ecb)
-    {
-        if (!SystemAPI.HasBuffer<ChessPiecePossibleSteps>(m_LastSelectedPieceE))
-            return false;
-
-        return IsCorrectSocketToMove(raycastedSocketE);
     }
 
     bool IsCorrectSocketToMove(Entity targetSocketE)
@@ -333,7 +332,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         if (!grabQuery.IsEmpty)
         {
             var granRpcArray = grabQuery.ToComponentDataArray<GrabChessRpc>(Allocator.Temp);
-            var grabRpc = granRpcArray[granRpcArray.Length - 1];       
+            var grabRpc = granRpcArray[granRpcArray.Length - 1];
 
             if (RaycastSocket(grabRpc.rayFrom, grabRpc.rayTo, out Entity raycastedSocketE))
             {
@@ -600,12 +599,6 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         string color = peiceData.isWhite ? "white" : "black";
 
-        if (prevMoveDataReal.isValid)
-        {
-            SystemAPI.GetAspect<ChessSocketHighlightAspect>(prevMoveDataReal.from).DestoryPrevMove(ecb);
-            SystemAPI.GetAspect<ChessSocketHighlightAspect>(prevMoveDataReal.to).DestoryPrevMove(ecb);
-        }
-
         SystemAPI.GetAspect<ChessSocketHighlightAspect>(fromSocket).ShowPrevMove(ecb);
         SystemAPI.GetAspect<ChessSocketHighlightAspect>(toSocket).ShowPrevMove(ecb);
 
@@ -626,7 +619,9 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     private bool MovePieceFromToSocketReal(Entity fromSocket, Entity toSocket)
     {
-        return MovePieceToSocketData(fromSocket, toSocket, out prevMoveDataReal);
+        var result = MovePieceToSocketData(fromSocket, toSocket, out var prevMoveDataReal);
+        m_PrevRealMoves.Add(prevMoveDataReal);
+        return result;
     }
 
     public struct PrevMoveData
@@ -787,132 +782,99 @@ public partial class PlayerTurnServerSystem : SystemBase
             return false;
         }
 
-        if (HasPieceInSlot(moveToSocket))
-        {
-            var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveToSocket);
-            ecb.DestroyEntity(toDestory.pieceE);
-            killed = true;
-            AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
-            PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
+        var moveFromPieceE = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket).pieceE;
+        var steps = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(moveFromPieceE);
+        ChessPiecePossibleSteps step = new ChessPiecePossibleSteps();
 
-            if (GetOponentEntity(out Entity oponent))
-            {
-                var shakeEntity = ecb.CreateEntity();
-                ecb.AddComponent<ShakeCameraRpc>(shakeEntity);
-                ecb.AddComponent<SendRpcCommandRequest>(shakeEntity, new SendRpcCommandRequest
-                {
-                    TargetConnection = oponent
-                });
-            }
+        foreach (var item in steps)
+        {
+            if (item.socketC.socketE == moveToSocket)
+                step = item;
         }
 
-        if (!killed)
+        foreach (var item in m_PrevRealMoves)
+        {
+            SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.from).DestoryPrevMove(ecb);
+            SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.to).DestoryPrevMove(ecb);
+        }
+
+        if (step.isÑastling)
         {
             AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
-        }
 
-        var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket);
-        var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
-
-        var boardAspect = GetBoard();
-
-        //pawn promotion
-        if (pieceData.chessType == ChessType.Pawn)
-        {
-            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
-            var isWhite = pieceData.isWhite;
-
-            if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
-            {
-                Entity pieceToDestory = pieces.pieceE;
-
-                requireTransformData = new SavedPieceTransformationData
-                {
-                    isWhite = isWhite,
-                    pieceE = pieceToDestory,
-                    requireTransformation = true,
-                    socket = moveToSocket
-                };
-
-                if (GetCurrentPlayerEntity(out Entity currentPlayer))
-                {
-                    var ecb1 = new EntityCommandBuffer(Allocator.Temp);
-                    var requestE = ecb1.CreateEntity();
-                    ecb1.AddComponent<SendRpcCommandRequest>(requestE, new SendRpcCommandRequest
-                    {
-                        TargetConnection = currentPlayer
-                    });
-                    ecb1.AddComponent<ShowPieceTransformationUIRpc>(requestE, new ShowPieceTransformationUIRpc
-                    {
-                        isWhite = SystemAPI.GetComponent<ChessPlayerC>(currentPlayer).isWhite
-                    });
-                    ecb1.Playback(EntityManager);
-                }
-            }
-        }
-        //castling
-        else if (pieceData.chessType == ChessType.Rook && !pieceData.isMovedOnce)
-        {
-            bool isWhite = pieceData.isWhite;
-            var kingE = isWhite ?
-                boardAspect.instanceC.ValueRO.whiteKingE : boardAspect.instanceC.ValueRO.blackKingE;
-
-            var kingPiece = SystemAPI.GetComponent<ChessPieceC>(kingE);
-
-            if (!kingPiece.isMovedOnce && !HasPieceInSlot(moveToSocket))
-            {
-                var kingSocket = SystemAPI.GetComponent<ChessSocketC>(kingE);
-                var pieceSocket = SystemAPI.GetComponent<ChessSocketC>(pieces.pieceE);
-
-                var kingSocketLeftE = boardAspect.GetSocket(kingSocket.x - 1, kingSocket.y).socketE;
-                var kingSocketRightE = boardAspect.GetSocket(kingSocket.x + 1, kingSocket.y).socketE;
-
-                if (moveToSocket == kingSocketLeftE || moveToSocket == kingSocketRightE)
-                {
-                    NativeList<Entity> checkSockets = new NativeList<Entity>(Allocator.Temp);
-
-                    if (kingSocket.y == 0 && pieceSocket.y == 0 && isWhite ||
-                        kingSocket.y == ChessBoardInstanceAspect.GRID_Y - 1 && pieceSocket.y == ChessBoardInstanceAspect.GRID_Y - 1 && !isWhite)
-                    {
-                        bool isRookLeft = kingSocket.x > pieceSocket.x;
-
-                        int offset = isRookLeft ? -1 : 1;
-                        var socket2 = boardAspect.GetSocket(kingSocket.x + offset, kingSocket.y).socketE;
-
-                        if (!HasPieceInSlot(socket2))
-                        {
-                            var socket1 = boardAspect.GetSocket(kingSocket.x, kingSocket.y).socketE;
-                            var socket3 = boardAspect.GetSocket(kingSocket.x + offset * 2, kingSocket.y).socketE;
-
-                            checkSockets.Add(socket1);
-                            checkSockets.Add(socket2);
-                            checkSockets.Add(socket3);
-                        }
-                    }
-
-                    bool isUnderAttack = false;
-                    foreach (var item1 in checkSockets)
-                    {
-                        if (IsSocketUnderAttack(item1, boardAspect))
-                        {
-                            isUnderAttack = true;
-                            break;
-                        }
-                    }
-
-                    if (!isUnderAttack && checkSockets.Length != 0)
-                    {
-                        MovePieceToSocketData(checkSockets[0], checkSockets[2], out _);
-                    }
-                }
-            }
-            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+            MovePieceFromToSocketWithChatMessage(moveFromSocket, step.castlingMove.kingMoveTo.socketE, ecb);
+            MovePieceFromToSocketWithChatMessage(moveToSocket, step.castlingMove.rookMoveTo.socketE, ecb);
         }
         else
         {
-            MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
-        }
+            if (HasPieceInSlot(moveToSocket))
+            {
+                var toDestory = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveToSocket);
+                ecb.DestroyEntity(toDestory.pieceE);
+                killed = true;
+                AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
+                PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
 
+                if (GetOponentEntity(out Entity oponent))
+                {
+                    var shakeEntity = ecb.CreateEntity();
+                    ecb.AddComponent<ShakeCameraRpc>(shakeEntity);
+                    ecb.AddComponent<SendRpcCommandRequest>(shakeEntity, new SendRpcCommandRequest
+                    {
+                        TargetConnection = oponent
+                    });
+                }
+            }
+
+            if (!killed)
+            {
+                AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
+            }
+
+            var pieces = SystemAPI.GetComponent<ChessSocketPieceLinkC>(moveFromSocket);
+            var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieces.pieceE);
+
+            var boardAspect = GetBoard();
+
+            //pawn promotion
+            if (pieceData.chessType == ChessType.Pawn)
+            {
+                MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+                var isWhite = pieceData.isWhite;
+
+                if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
+                {
+                    Entity pieceToDestory = pieces.pieceE;
+
+                    requireTransformData = new SavedPieceTransformationData
+                    {
+                        isWhite = isWhite,
+                        pieceE = pieceToDestory,
+                        requireTransformation = true,
+                        socket = moveToSocket
+                    };
+
+                    if (GetCurrentPlayerEntity(out Entity currentPlayer))
+                    {
+                        var ecb1 = new EntityCommandBuffer(Allocator.Temp);
+                        var requestE = ecb1.CreateEntity();
+                        ecb1.AddComponent<SendRpcCommandRequest>(requestE, new SendRpcCommandRequest
+                        {
+                            TargetConnection = currentPlayer
+                        });
+                        ecb1.AddComponent<ShowPieceTransformationUIRpc>(requestE, new ShowPieceTransformationUIRpc
+                        {
+                            isWhite = SystemAPI.GetComponent<ChessPlayerC>(currentPlayer).isWhite
+                        });
+                        ecb1.Playback(EntityManager);
+                    }
+                }
+            }
+            else
+            {
+                MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+            }
+        }
         return true;
     }
 
@@ -1118,10 +1080,99 @@ public partial class PlayerTurnServerSystem : SystemBase
                 TryAddTurn(x, y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
                 TryAddTurn(x - 1, y + 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
                 TryAddTurn(x + 1, y - 1, true, true, boardAspect, turnPositions, isWhite, out bool _);
+
+                TryAddCaslingSteps(pieceToMoveE, socketC, boardAspect, turnPositions, isWhite);
                 break;
 
             default:
                 break;
+        }
+    }
+
+    void TryAddCaslingSteps(
+        Entity kingE,
+        ChessSocketC socketC,
+        ChessBoardInstanceAspect boardAspect,
+        DynamicBuffer<ChessPiecePossibleSteps> turnPositions,
+        bool isWhite)
+    {
+        var kingData = SystemAPI.GetComponent<ChessPieceC>(kingE);
+
+        if (kingData.isMovedOnce)
+            return;
+
+        var pieces = boardAspect.GetCurrentPlayerPieces();
+
+        bool isKingUnderAttack = IsSocketUnderAttack(socketC.socketE, boardAspect);
+
+        if (isKingUnderAttack)
+            return;
+
+        NativeList<Entity> rooks = new NativeList<Entity>(Allocator.Temp);
+
+        foreach (var pieceE in pieces)
+        {
+            var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
+            var pieceSocket = SystemAPI.GetComponent<ChessSocketC>(pieceE);
+
+            if (
+                pieceData.chessType == ChessType.Rook &&
+                !pieceData.isMovedOnce &&
+                !IsSocketUnderAttack(pieceSocket.socketE, boardAspect))
+            {
+                rooks.Add(pieceE);
+            }
+        }
+
+        foreach (var rook in rooks)
+        {
+            var rookSocketData = SystemAPI.GetComponent<ChessSocketC>(rook);
+            var rookSocketSocketE = rookSocketData.socketE;
+
+            var kingSocket = SystemAPI.GetComponent<ChessSocketC>(kingE);
+
+            NativeList<Entity> checkSockets = new NativeList<Entity>(Allocator.Temp);
+
+            if (kingSocket.y == 0 && rookSocketData.y == 0 && isWhite ||
+                kingSocket.y == ChessBoardInstanceAspect.GRID_Y - 1 && rookSocketData.y == ChessBoardInstanceAspect.GRID_Y - 1 && !isWhite)
+            {
+                bool isRookLeft = kingSocket.x > rookSocketData.x;
+
+                int offset = isRookLeft ? -1 : 1;
+              
+                int currentX = kingSocket.x + offset;
+
+                bool hasAttackedSocket = false;
+                // check all sockets bettwen not attacked
+                while (currentX != rookSocketData.x)
+                {
+                    var socket = boardAspect.GetSocket(currentX, kingSocket.y).socketE;
+                    if (HasPieceInSlot(socket) || IsSocketUnderAttack(socket, boardAspect))
+                    {
+                        hasAttackedSocket = true;
+                        break;
+                    }
+                    currentX += offset;
+                }
+
+                if (hasAttackedSocket)
+                    continue;
+
+                var rookMoveToE = boardAspect.GetSocket(kingSocket.x + offset, kingSocket.y).socketE;
+                var kingMoveToE = boardAspect.GetSocket(kingSocket.x + offset*2, kingSocket.y).socketE;
+
+                turnPositions.Add(new ChessPiecePossibleSteps
+                {
+                    isÑastling = true,
+                    socketC = rookSocketData,
+                    hasEnemy = false,
+                    castlingMove = new ÑastlingData
+                    {
+                        kingMoveTo = SystemAPI.GetComponent<ChessSocketC>(kingMoveToE),
+                        rookMoveTo = SystemAPI.GetComponent<ChessSocketC>(rookMoveToE)
+                    }
+                });             
+            }
         }
     }
 
