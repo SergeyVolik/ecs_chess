@@ -7,7 +7,7 @@ public class UIPages : MonoBehaviour
     public MainMenuUI mainMenu;
     public PlayOnlineUI playOnline;
     public CreateGameUI createGameUi;
-    public GameUI gameUi;
+    public GameplayUI gameUi;
     public WinUI winUi;
     public SelectPieceUi selectPiecesUi;
     public InGameMenuUI inGameMenu;
@@ -15,5 +15,15 @@ public class UIPages : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+
+        mainMenu.Hide();
+        playOnline.Hide();
+        createGameUi.Hide();
+        gameUi.Hide();
+        winUi.Hide();
+        selectPiecesUi.Hide();
+        inGameMenu.Hide();
+
+        mainMenu.Show();
     }
 }

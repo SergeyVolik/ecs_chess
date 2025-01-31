@@ -10,7 +10,6 @@ public enum GameMode
     VsBot
 }
 
-
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -61,5 +60,18 @@ public class GameManager : MonoBehaviour
             var entity = query.GetSingletonEntity();
             em.DestroyEntity(entity);
         }
+    }
+
+    internal void RequestSurrender()
+    {
+        var em = ConnectionManager.ClientWorld.EntityManager;
+        var e = em.CreateEntity();
+        em.AddComponent<SurrenderRPC>(e);
+        em.AddComponent<SendRpcCommandRequest>(e);
+    }
+
+    internal void RequestDraw()
+    {
+        throw new NotImplementedException();
     }
 }

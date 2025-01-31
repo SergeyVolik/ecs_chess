@@ -6,10 +6,12 @@ public class WinUI : BaseGameUI
     public Button leaveButton;
     
     public TextMeshProUGUI winText;
+    public TextMeshProUGUI reasonText;
 
-    public void ShowWin(string text)
+    public void ShowWin(string text, string reason)
     {
         winText.text = text;
+        reasonText.text = reason;
         Show();
     }
 

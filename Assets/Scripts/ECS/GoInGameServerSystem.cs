@@ -38,8 +38,11 @@ public partial struct GoInGameServerSystem : ISystem
             {
                 TargetConnection = request.ValueRO.SourceConnection
             });
+
             bool hasWhite = false;
             bool hasBlack = false;
+
+            
             foreach (var item in SystemAPI.Query<ChessPlayerC>())
             {
                 if (item.isWhite)
@@ -61,6 +64,8 @@ public partial struct GoInGameServerSystem : ISystem
                 ecb.AddComponent<ChessPlayerC>(request.ValueRO.SourceConnection, new ChessPlayerC { 
                      isWhite = true
                 });
+
+                ChatWindow.Instance.RequestText("[Sys] white player connected", ecb);
                 Debug.Log($"[Server] go in game as white");
 
             }
@@ -74,7 +79,13 @@ public partial struct GoInGameServerSystem : ISystem
                 {
                     isWhite = false
                 });
+
+                ChatWindow.Instance.RequestText("[Sys] black player connected", ecb);
                 Debug.Log($"[Server] go in game as black");
+            }
+            else 
+            {
+                ChatWindow.Instance.RequestText("[Sys] spectator connected", ecb);
             }
 
             ecb.DestroyEntity(entity);

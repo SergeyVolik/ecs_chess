@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -8,11 +6,17 @@ using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
 
+public enum WinReason
+{
+    Win,
+    OponentSurrendreed
+}
+
 public struct EndGameRPC : IRpcCommand
 {
     public bool isWhiteWin;
+    public WinReason winReason;
 }
-
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial class PlayerTurnServerSystem : SystemBase
@@ -179,15 +183,18 @@ public partial class PlayerTurnServerSystem : SystemBase
         {
             board = GetBoard();
             board.instanceC.ValueRW.blockInput = true;
+
+
             var ecb = new EntityCommandBuffer(Allocator.Temp);
-            var request = EntityManager.CreateEntity();
-            ecb.AddComponent<SendRpcCommandRequest>(request);
-            ecb.AddComponent<EndGameRPC>(request, new EndGameRPC
+
+            var endGameE = ecb.CreateEntity();
+
+            ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
             {
+                isDraw = false,
                 isWhiteWin = !isWhiteStep,
+                winReason = WinReason.Win
             });
-            ecb.Playback(EntityManager);
-            Debug.Log($"[Server] winner white:{!isWhiteStep}");
         }
         else
         {
@@ -1139,7 +1146,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 bool isRookLeft = kingSocket.x > rookSocketData.x;
 
                 int offset = isRookLeft ? -1 : 1;
-              
+
                 int currentX = kingSocket.x + offset;
 
                 bool hasAttackedSocket = false;
@@ -1159,7 +1166,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                     continue;
 
                 var rookMoveToE = boardAspect.GetSocket(kingSocket.x + offset, kingSocket.y).socketE;
-                var kingMoveToE = boardAspect.GetSocket(kingSocket.x + offset*2, kingSocket.y).socketE;
+                var kingMoveToE = boardAspect.GetSocket(kingSocket.x + offset * 2, kingSocket.y).socketE;
 
                 turnPositions.Add(new ChessPiecePossibleSteps
                 {
@@ -1171,7 +1178,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                         kingMoveTo = SystemAPI.GetComponent<ChessSocketC>(kingMoveToE),
                         rookMoveTo = SystemAPI.GetComponent<ChessSocketC>(rookMoveToE)
                     }
-                });             
+                });
             }
         }
     }

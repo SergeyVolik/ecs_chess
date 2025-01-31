@@ -7,11 +7,10 @@ public class InGameMenuUI : BaseGameUI
     public Button continueButton;
     public Button leaveButton;
     public Button copyButton;
+    public Button surrenderButton;
+    public Button drawButton;
 
     public TextMeshProUGUI enterCode;
-
-    public GameUI gameUI;
-    public MainMenuUI menuUI;
 
     protected override void Awake()
     {
@@ -26,12 +25,23 @@ public class InGameMenuUI : BaseGameUI
         {
             ConnectionManager.Instance.Disconnect();
             Hide();
-            menuUI.Show();
+            UIPages.Instance.mainMenu.Show();
         });
 
         continueButton.onClick.AddListener(() =>
         {
             Continue();
+        });
+
+        surrenderButton.onClick.AddListener(() =>
+        {
+            Debug.Log("[Client] Surrender");
+            GameManager.Instance.RequestSurrender();
+        });
+
+        drawButton.onClick.AddListener(() =>
+        {
+            GameManager.Instance.RequestDraw();
         });
     }
 
@@ -39,12 +49,17 @@ public class InGameMenuUI : BaseGameUI
     {
         Hide();
         GameManager.Instance.EnableInput();
-        gameUI.Show();
+        UIPages.Instance.gameUi.Show();
     }
 
     public override void Show()
     {
         base.Show();
+
+        copyButton.gameObject.SetActive(GameManager.Instance.GameMode == GameMode.Online);
+        //surrenderButton.gameObject.SetActive(GameManager.Instance.GameMode == GameMode.Online);
+        drawButton.gameObject.SetActive(GameManager.Instance.GameMode == GameMode.Online);
+
         GameManager.Instance.DisableInput();
         enterCode.text = ConnectionManager.Instance.JoinCode;
     }
@@ -53,6 +68,7 @@ public class InGameMenuUI : BaseGameUI
     {
         if (IsShowed && Input.GetKeyDown(KeyCode.Escape))
         {
+            Debug.Log("Continue");
             Continue();
         }
     }
