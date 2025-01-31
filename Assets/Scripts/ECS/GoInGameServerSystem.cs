@@ -65,7 +65,7 @@ public partial struct GoInGameServerSystem : ISystem
                      isWhite = true
                 });
 
-                ChatWindow.Instance.RequestText("[Sys] white player connected", ecb);
+                ChatWindow.Instance.RequestText("white player connected", ecb);
                 Debug.Log($"[Server] go in game as white");
 
             }
@@ -80,12 +80,12 @@ public partial struct GoInGameServerSystem : ISystem
                     isWhite = false
                 });
 
-                ChatWindow.Instance.RequestText("[Sys] black player connected", ecb);
+                ChatWindow.Instance.RequestText("black player connected", ecb);
                 Debug.Log($"[Server] go in game as black");
             }
             else 
             {
-                ChatWindow.Instance.RequestText("[Sys] spectator connected", ecb);
+                ChatWindow.Instance.RequestText("spectator connected", ecb);
             }
 
             ecb.DestroyEntity(entity);

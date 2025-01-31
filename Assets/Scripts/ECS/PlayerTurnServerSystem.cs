@@ -822,6 +822,21 @@ public partial class PlayerTurnServerSystem : SystemBase
                 AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
                 PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
 
+                var pieceToDestory = SystemAPI.GetComponent<ChessPieceC>(toDestory.pieceE);
+                var board = GetBoard();
+                board.killedPieces.Add(new KilledPieces
+                {
+                    chessType = pieceToDestory.chessType,
+                    isWhite = pieceToDestory.isWhite,
+                });
+
+                var updatePiecesViewE = ecb.CreateEntity();
+                ecb.AddComponent<SendRpcCommandRequest>(updatePiecesViewE);
+                ecb.AddComponent<AddKilledPiecesRPC>(updatePiecesViewE, new AddKilledPiecesRPC
+                {
+                    data = pieceToDestory
+                });
+
                 if (GetOponentEntity(out Entity oponent))
                 {
                     var shakeEntity = ecb.CreateEntity();
@@ -1119,6 +1134,9 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         foreach (var pieceE in pieces)
         {
+            if (!SystemAPI.HasComponent<ChessPieceC>(pieceE))
+                continue;
+
             var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
             var pieceSocket = SystemAPI.GetComponent<ChessSocketC>(pieceE);
 

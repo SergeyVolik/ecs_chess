@@ -20,6 +20,18 @@ public struct ChessBoardBoundsC : IComponentData
 {
     public Bounds bounds;
 }
+
+public struct KilledPieces : IBufferElementData
+{
+    [GhostField] public bool isWhite;
+    [GhostField] public ChessType chessType;
+}
+
+public struct AddKilledPiecesRPC : IRpcCommand
+{
+    public ChessPieceC data;
+}
+
 public class ChessBoardInstanceAuthoring : MonoBehaviour
 {
     public Transform whiteTurnUiPoint;
@@ -30,7 +42,6 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
     public ChessBoardConfigurationSO config;
     public class Baker : Baker<ChessBoardInstanceAuthoring>
     {
-
         public override void Bake(ChessBoardInstanceAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
@@ -46,6 +57,7 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
                 isWhite = true
             });
 
+            AddBuffer<KilledPieces>(entity);
             AddBuffer<ChessBoardBlackPiecesBuffer>(entity);
             AddBuffer<ChessBoardWhitePiecesBuffer>(entity);
 

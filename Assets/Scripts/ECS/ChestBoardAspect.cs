@@ -59,6 +59,8 @@ readonly partial struct ChessBoardPersistentAspect : IAspect
 readonly partial struct ChessBoardInstanceAspect : IAspect
 {
     public readonly Entity Self;
+    public readonly DynamicBuffer<KilledPieces> killedPieces;
+
     public readonly DynamicBuffer<ChessBoardInstanceSockets> boardSocketsB;
     private readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
     private readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;

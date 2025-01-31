@@ -5,6 +5,8 @@ using UnityEngine.UI;
 public class GameplayUI : BaseGameUI
 {
     public TextMeshProUGUI timeText;
+    public KilledPiecesUIView whiteView;
+    public KilledPiecesUIView blackView;
 
     protected override void Awake()
     {

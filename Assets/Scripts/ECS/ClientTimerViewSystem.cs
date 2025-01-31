@@ -39,7 +39,7 @@ public partial class ClientTimerViewSystem : SystemBase
     {
         foreach (var item in SystemAPI.Query<ChessBoardTimerC>())
         {
-            UIPages.Instance.gameUi.timeText.text = TextHelper.TimeText(item.duration);
+            UIPages.Instance.gameUi.timeText.text = $"Time: {TextHelper.TimeText(item.duration)}";
         }
     }
 }

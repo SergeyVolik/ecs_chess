@@ -27,7 +27,7 @@ public partial class ClientSetupPlayerSystem : SystemBase
             }
 
             ChatWindow.Instance.ClearChat();
-            ChatWindow.Instance.Show(false);
+            ChatWindow.Instance.Show(true);
 
            CameraController.Instance.SetupPlayerCamera(command.ValueRO.isWhite);           
             Debug.Log("[Client] setup camera");

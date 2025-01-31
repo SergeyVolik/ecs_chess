@@ -17,15 +17,15 @@ public class ChatWindow : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        Show(false);
+        //Show(false);
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Tab))
-        {
-            Show(!IsShowed());
-        }
+        //if (Input.GetKeyDown(KeyCode.Tab))
+        //{
+        //    Show(!IsShowed());
+        //}
     }
 
     public bool IsShowed() => chatView.activeSelf;
@@ -46,6 +46,7 @@ public class ChatWindow : MonoBehaviour
 
     public void ClearChat()
     {
+        Debug.Log("Clear chat");
         foreach (var item in chatItems)
         {
             GameObject.Destroy(item.gameObject);
@@ -57,6 +58,7 @@ public class ChatWindow : MonoBehaviour
     {
         var item = GameObject.Instantiate(chatTextItemPrefab, spawnPoint);
         item.text.text = text;
+        chatItems.Add(item);
     } 
 }
 
