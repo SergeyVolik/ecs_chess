@@ -60,6 +60,9 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
             AddBuffer<KilledPieces>(entity);
             AddBuffer<ChessBoardBlackPiecesBuffer>(entity);
             AddBuffer<ChessBoardWhitePiecesBuffer>(entity);
+            AddBuffer<ChessBoardAllPiecesMeshes>(entity);
+            AddBuffer<ChessBoardAllPiecesData>(entity);
+
 
             AddComponent<ChessBoardUIPoints>(entity, new ChessBoardUIPoints
             {

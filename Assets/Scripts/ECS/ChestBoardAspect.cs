@@ -52,14 +52,17 @@ public enum ChessPositionVertical
 readonly partial struct ChessBoardPersistentAspect : IAspect
 {
     public readonly RefRO<ChessBoardPersistentC> boardC;
-    public ChessPiecesPrefabs GetWhitePrefabs() => boardC.ValueRO.whitePiecesPrefabs;
-    public ChessPiecesPrefabs GetBlackPrefabs() => boardC.ValueRO.blackPiecesPrefabs;
+    public ChessPiecesPrefabs GetWhitePrefabs() => boardC.ValueRO.whitePiecesMeshPrefabs;
+    public ChessPiecesPrefabs GetBlackPrefabs() => boardC.ValueRO.blackPiecesMeshPrefabs;
 }
 
 readonly partial struct ChessBoardInstanceAspect : IAspect
 {
-    public readonly Entity Self;
+    public readonly Entity Entity;
     public readonly DynamicBuffer<KilledPieces> killedPieces;
+
+    public readonly DynamicBuffer<ChessBoardAllPiecesMeshes> allPiecesMeshesB;
+    public readonly DynamicBuffer<ChessBoardAllPiecesData> allPiecesDataB;
 
     public readonly DynamicBuffer<ChessBoardInstanceSockets> boardSocketsB;
     private readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
@@ -72,6 +75,22 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
 
     public const int GRID_X = 8;
     public const int GRID_Y = 8;
+
+    public Entity GetPieceDataById(int id)
+    {
+        if (id == -1)
+            return Entity.Null;
+
+        return allPiecesDataB[id].dataPieceE;
+    }
+
+    public Entity GetPieceMeshById(int id)
+    {
+        if (id == -1)
+            return Entity.Null;
+
+        return allPiecesMeshesB[id].meshPieceE;
+    }
 
     public bool IsWhiteStep()
     {
@@ -98,29 +117,28 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
         return boardSocketsB[y * GRID_Y + x];
     }
 
-
-    public NativeArray<Entity> GetBlackPieces()
+    public NativeArray<int> GetBlackPiecesIds()
     {
-        return boardPiecesBlack.Reinterpret<Entity>().AsNativeArray();
+        return boardPiecesBlack.Reinterpret<int>().AsNativeArray();
     }
 
-    public NativeArray<Entity> GetWhitePieces()
+    public NativeArray<int> GetWhitePiecesIds()
     {
-        return boardPiecesWhite.Reinterpret<Entity>().AsNativeArray();
+        return boardPiecesWhite.Reinterpret<int>().AsNativeArray();
     }
 
-    public NativeArray<Entity> GetOponentPieces()
+    public NativeArray<int> GetOponentPiecesIds()
     {
        return IsWhiteStep() ?
-           boardPiecesBlack.Reinterpret<Entity>().AsNativeArray() :
-           boardPiecesWhite.Reinterpret<Entity>().AsNativeArray();
+           boardPiecesBlack.Reinterpret<int>().AsNativeArray() :
+           boardPiecesWhite.Reinterpret<int>().AsNativeArray();
     }
 
-    public NativeArray<Entity> GetCurrentPlayerPieces()
+    public NativeArray<int> GetCurrentPlayerPiecesIds()
     {
         return IsWhiteStep() ?
-            boardPiecesWhite.Reinterpret<Entity>().AsNativeArray() :
-            boardPiecesBlack.Reinterpret<Entity>().AsNativeArray();
+            boardPiecesWhite.Reinterpret<int>().AsNativeArray() :
+            boardPiecesBlack.Reinterpret<int>().AsNativeArray();
     }
 
     public ChessBoardInstanceSockets GetSocket(int index)

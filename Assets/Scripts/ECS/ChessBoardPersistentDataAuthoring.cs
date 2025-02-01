@@ -23,6 +23,9 @@ public class ChessBoardPersistentDataAuthoring : MonoBehaviour
     public ChessPieces black;
     public ChessPieces white;
 
+    public ChessPieces blackData;
+    public ChessPieces whiteData;
+
     public class Baker : Baker<ChessBoardPersistentDataAuthoring>
     {
         public override void Bake(ChessBoardPersistentDataAuthoring authoring)
@@ -34,8 +37,10 @@ public class ChessBoardPersistentDataAuthoring : MonoBehaviour
                 spawnGridOffset = authoring.spawnGridOffset,
                 socketPrefab = GetEntity(authoring.socketPrefab, TransformUsageFlags.Dynamic),
                 chessBoardPrefab = GetEntity(authoring.chessBoard, TransformUsageFlags.Dynamic),
-                blackPiecesPrefabs = GetPrefabs(authoring.black),
-                whitePiecesPrefabs = GetPrefabs(authoring.white),
+                blackPiecesMeshPrefabs = GetPrefabs(authoring.black),
+                whitePiecesMeshPrefabs = GetPrefabs(authoring.white),
+                blackPiecesDataPrefabs = GetPrefabs(authoring.blackData),
+                whitePiecesDataPrefabs = GetPrefabs(authoring.whiteData),
             });
         }
 

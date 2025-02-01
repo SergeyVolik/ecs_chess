@@ -20,8 +20,11 @@ public struct ChessBoardPersistentC : IComponentData
     public Entity socketPrefab;
     public Entity chessBoardPrefab;
 
-    public ChessPiecesPrefabs blackPiecesPrefabs;
-    public ChessPiecesPrefabs whitePiecesPrefabs;
+    public ChessPiecesPrefabs blackPiecesMeshPrefabs;
+    public ChessPiecesPrefabs whitePiecesMeshPrefabs;
+
+    public ChessPiecesPrefabs blackPiecesDataPrefabs;
+    public ChessPiecesPrefabs whitePiecesDataPrefabs;
 }
 
 public struct ChessBoardInstanceT : IComponentData
@@ -68,21 +71,31 @@ public struct ChessBoardTurnC : IComponentData
 }
 public struct ChessBoardWhitePiecesBuffer : IBufferElementData
 {
-    [GhostField] public Entity pieceE;
+    [GhostField] public int pieceId;
 }
 
 public struct ChessBoardBlackPiecesBuffer : IBufferElementData
 {
-    [GhostField] public Entity pieceE;
+    [GhostField] public int pieceId;
 }
 
+public struct ChessBoardAllPiecesMeshes : IBufferElementData
+{
+    [GhostField] public Entity meshPieceE;  
+}
 
-public struct ChessPieceC : IComponentData
+public struct ChessBoardAllPiecesData : IBufferElementData
+{
+    [GhostField] public Entity dataPieceE;
+}
+
+    public struct ChessPieceC : IComponentData
 {
     [GhostField] public ChessType chessType;
     [GhostField] public bool isWhite;
     [GhostField] public bool isMovedOnce;
-    [GhostField] public bool notActive;
+    [GhostField] public bool isNotActive;
+    public int numberOfMoves;
     public override string ToString()
     {
         return $"chessType: {chessType}";
@@ -91,11 +104,14 @@ public struct ChessPieceC : IComponentData
 
 public struct ChessPiecePossibleSteps : IBufferElementData
 {
-    [GhostField] public ChessSocketC socketC;
+    [GhostField] public ChessSocketC defaultMoveTO;
     [GhostField] public bool hasEnemy;
 
     [GhostField] public bool isÑastling;
-    [GhostField] public ÑastlingData castlingMove; 
+    [GhostField] public ÑastlingData castlingMove;
+
+    [GhostField] public bool isTakeOfThePass;
+    [GhostField] public TakeOfThePassData TakeOfThePassData;
 }
 
 [System.Serializable]
@@ -104,6 +120,15 @@ public struct ÑastlingData
     public ChessSocketC kingMoveTo;
     public ChessSocketC rookMoveTo;
 }
+
+
+[System.Serializable]
+public struct TakeOfThePassData
+{
+    public ChessSocketC moveToSocket;
+    public ChessSocketC destoryPieceSocket;
+}
+
 
 public struct ChessSocketSelectedT : IComponentData
 {
@@ -139,7 +164,12 @@ public struct ChessSocketHighlightC : IComponentData
     public Entity highlightEnemyPrefab;
 }
 
-public struct ChessSocketPieceLinkC : IComponentData
+public struct ChessSocketPieceIdC : IComponentData
 {
-    [GhostField] public Entity pieceE;
+    [GhostField] public int pieceId;
+
+    public void Reset()
+    {
+        pieceId = -1;
+    }
 }

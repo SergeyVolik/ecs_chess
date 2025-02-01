@@ -260,6 +260,20 @@ MonoBehaviour:
     pawn: {fileID: 7612165726262539954, guid: ca7ef877635e43446b20dbfc1cdc128d, type: 3}
     queen: {fileID: 7434104652806417698, guid: 48df753427116214f8f23e87e3187316, type: 3}
     rook: {fileID: 2533128213471136779, guid: c9f50cfd970651b40a6aac05fcef8ae2, type: 3}
+  blackData:
+    bishop: {fileID: 2523833783965671810, guid: 1459c629e22233a4e89b86c316f332a9, type: 3}
+    king: {fileID: 7938135830336865273, guid: 466955b008c05574496054fb6c8779df, type: 3}
+    knight: {fileID: 7730649641414932893, guid: 10195e8c7d3b5424cb6fc72c6a2a7b7a, type: 3}
+    pawn: {fileID: 3158660747199227671, guid: 448daac5dd82a3f429852acb31e5daf1, type: 3}
+    queen: {fileID: 5744755481860596209, guid: 0abe901ccfd938246852f2739283f4d3, type: 3}
+    rook: {fileID: 7873382687656756822, guid: 6a32552f786bbc24d9462c3963fbe11e, type: 3}
+  whiteData:
+    bishop: {fileID: 5698404372195785650, guid: 22bad327d5629074aaab6575802d9c18, type: 3}
+    king: {fileID: 5445781480586902981, guid: a1248db8106462249b1e4026f01ead2f, type: 3}
+    knight: {fileID: 1841265454110534230, guid: e35769ab758c72540bcd928f17a35ee6, type: 3}
+    pawn: {fileID: 7612165726262539954, guid: 85bcfd2422d4f3747a3c8f758d51b076, type: 3}
+    queen: {fileID: 7434104652806417698, guid: 6016a65611e984449bb34364a6d33007, type: 3}
+    rook: {fileID: 2533128213471136779, guid: a33e72fc92dafef4cb12f99df3d145fa, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

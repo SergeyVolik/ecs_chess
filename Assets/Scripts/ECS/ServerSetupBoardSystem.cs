@@ -47,7 +47,6 @@ public partial struct ServerSetupBoardSystem : ISystem
         SetupSokets(ref state, boardE, in persistentData);
 
         SpawnBoardWithConfig(ref state, boardE, in persistentData);
-        //SpawnDefaultBoard(ref state, boardE, in persistentData);
     }
 
     public void SetupSokets(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
@@ -90,8 +89,9 @@ public partial struct ServerSetupBoardSystem : ISystem
     {
         var config = SystemAPI.ManagedAPI.GetComponent<ChessBoardInstanceSpawnConfigC>(boardE).config;
 
-        SpawnPieces(ref state, boardE, config.black, bC.blackPiecesPrefabs);
-        SpawnPieces(ref state, boardE, config.white, bC.whitePiecesPrefabs);
+        int pieceIndex = 0;
+        SpawnPieces(ref state, boardE, config.black, bC.blackPiecesMeshPrefabs, bC.blackPiecesDataPrefabs, false, ref pieceIndex);
+        SpawnPieces(ref state, boardE, config.white, bC.whitePiecesMeshPrefabs, bC.whitePiecesDataPrefabs, true, ref pieceIndex);
 
         SetupPiecesBuffers(ref state, boardE);
 
@@ -105,37 +105,50 @@ public partial struct ServerSetupBoardSystem : ISystem
         ref SystemState state,
           Entity boardE,
         SpawnPieceData[] spawn,
-        ChessPiecesPrefabs prefabs)
+        ChessPiecesPrefabs meshPrefabs,
+        ChessPiecesPrefabs dataPrefabs,
+
+        bool isWhite,
+        ref int pieceIndex)
     {
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
         var sockets = new NativeList<ChessBoardInstanceSockets>(Allocator.Temp);
 
-        foreach (var item in spawn)
+        foreach (var spawnData in spawn)
         {
-            Entity prefab = Entity.Null;
+            Entity prefabMeshPrefab = Entity.Null;
+            Entity prefabDataPrefab = Entity.Null;
 
-            switch (item.type)
+            switch (spawnData.type)
             {
                 case ChessType.Pawn:
-                    prefab = prefabs.pawn;
+                    prefabMeshPrefab = meshPrefabs.pawn;
+                    prefabDataPrefab = dataPrefabs.pawn;
+
                     break;
                 case ChessType.Bishop:
-                    prefab = prefabs.bishop;
+                    prefabMeshPrefab = meshPrefabs.bishop;
+                    prefabDataPrefab = dataPrefabs.bishop;
                     break;
                 case ChessType.Rook:
-                    prefab = prefabs.rook;
+                    prefabMeshPrefab = meshPrefabs.rook;
+                    prefabDataPrefab = dataPrefabs.rook;
 
                     break;
                 case ChessType.Knight:
-                    prefab = prefabs.knight;
+                    prefabMeshPrefab = meshPrefabs.knight;
+                    prefabDataPrefab = dataPrefabs.knight;
 
                     break;
                 case ChessType.Queen:
-                    prefab = prefabs.queen;
+                    prefabMeshPrefab = meshPrefabs.queen;
+                    prefabDataPrefab = dataPrefabs.queen;
+
                     break;
                 case ChessType.King:
-                    prefab = prefabs.king;
+                    prefabMeshPrefab = meshPrefabs.king;
+                    prefabDataPrefab = dataPrefabs.king;
 
                     break;
                 default:
@@ -143,40 +156,11 @@ public partial struct ServerSetupBoardSystem : ISystem
             }
 
             sockets.Clear();
-            sockets.Add(boardAspect.GetSocket((int)item.horizontal, (int)item.vertical));
-            SetupPieces(ref state, sockets, ecb, prefab, boardE);
+            sockets.Add(boardAspect.GetSocket((int)spawnData.horizontal, (int)spawnData.vertical));
+            SetupPieces(ref state, sockets, ecb, prefabMeshPrefab, prefabDataPrefab, boardE, spawnData.type, isWhite, ref pieceIndex);
         }
 
         ecb.Playback(state.EntityManager);
-    }
-
-    public void SpawnDefaultBoard(ref SystemState state, Entity boardE, in ChessBoardPersistentC bC)
-    {
-        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
-        NativeList<ChessBoardInstanceSockets> sockets = new NativeList<ChessBoardInstanceSockets>(Allocator.Temp);
-
-        var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
-
-        var whitePrefabs = bC.whitePiecesPrefabs;
-        var blackPrefabs = bC.blackPiecesPrefabs;
-
-        SetupPieces(ref state, boardAspect.GetPawnSocketsBlack(sockets), ecb, blackPrefabs.pawn, boardE);
-        SetupPieces(ref state, boardAspect.GetRookSocketsBlack(sockets), ecb, blackPrefabs.rook, boardE);
-        SetupPieces(ref state, boardAspect.GetKnightSocketsBlack(sockets), ecb, blackPrefabs.knight, boardE);
-        SetupPieces(ref state, boardAspect.GetBishopSocketsBlack(sockets), ecb, blackPrefabs.bishop, boardE);
-        SetupPieces(ref state, boardAspect.GetQueenSocketsBlack(sockets), ecb, blackPrefabs.queen, boardE);
-        SetupPieces(ref state, boardAspect.GetKingSocketsBlack(sockets), ecb, blackPrefabs.king, boardE);
-
-        SetupPieces(ref state, boardAspect.GetPawnSocketsWhite(sockets), ecb, whitePrefabs.pawn, boardE);
-        SetupPieces(ref state, boardAspect.GetRookSocketsWhite(sockets), ecb, whitePrefabs.rook, boardE);
-        SetupPieces(ref state, boardAspect.GetKnightSocketsWhite(sockets), ecb, whitePrefabs.knight, boardE);
-        SetupPieces(ref state, boardAspect.GetBishopSocketsWhite(sockets), ecb, whitePrefabs.bishop, boardE);
-        SetupPieces(ref state, boardAspect.GetQueenSocketsWhite(sockets), ecb, whitePrefabs.queen, boardE);
-        SetupPieces(ref state, boardAspect.GetKingSocketsWhite(sockets), ecb, whitePrefabs.king, boardE);
-
-        ecb.Playback(state.EntityManager);
-
-        SetupPiecesBuffers(ref state, boardE);
     }
 
     private void SetupPiecesBuffers(ref SystemState state, Entity boardE)
@@ -185,47 +169,77 @@ public partial struct ServerSetupBoardSystem : ISystem
         var white = SystemAPI.GetBuffer<ChessBoardWhitePiecesBuffer>(boardE);
         black.Clear();
         white.Clear();
+
+        var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
         var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceT>(boardE);
-        foreach (var (c, e) in SystemAPI.Query<ChessPieceC>().WithEntityAccess())
+
+        for (int i = 0; i < boardAspect.allPiecesDataB.Length; i++)
         {
+            var entity = boardAspect.allPiecesDataB[i].dataPieceE;
+            var c = SystemAPI.GetComponent<ChessPieceC>(boardAspect.allPiecesDataB[i].dataPieceE);
             if (c.isWhite)
             {
-                white.Add(new ChessBoardWhitePiecesBuffer { pieceE = e });
+                white.Add(new ChessBoardWhitePiecesBuffer {  pieceId = i });
                 if (c.chessType == ChessType.King)
                 {
-                    bInstance.ValueRW.whiteKingE = e;
+                    bInstance.ValueRW.whiteKingE = entity;
                 }
             }
             else
             {
-                black.Add(new ChessBoardBlackPiecesBuffer { pieceE = e });
+                black.Add(new ChessBoardBlackPiecesBuffer { pieceId = i });
                 if (c.chessType == ChessType.King)
                 {
-                    bInstance.ValueRW.blackKingE = e;
+                    bInstance.ValueRW.blackKingE = entity;
                 }
             }
         }
     }
 
-    private void SetupPieces(ref SystemState state, NativeList<ChessBoardInstanceSockets> sockets, EntityCommandBuffer ecb, Entity prefab, Entity boardE)
+    private void SetupPieces(
+        ref SystemState state,
+        NativeList<ChessBoardInstanceSockets> sockets,
+        EntityCommandBuffer ecb,
+        Entity meshPrefab,
+        Entity dataPrefab,
+        Entity boardE,
+        ChessType type,
+        bool isWhite,
+        ref int pieceIndex)
     {
         foreach (var item in sockets)
         {
             var socketTrans = SystemAPI.GetComponent<LocalTransform>(item.socketE);
-            var instance = ecb.Instantiate(prefab);
+            var meshInstance = ecb.Instantiate(meshPrefab);
 
-            ecb.AddComponent<ChessSocketPieceLinkC>(item.socketE, new ChessSocketPieceLinkC
+            ecb.AddComponent<ChessSocketPieceIdC>(item.socketE, new ChessSocketPieceIdC
             {
-                pieceE = instance
+                pieceId = pieceIndex
             });
 
-            ecb.AddComponent<Parent>(instance, new Parent
+            ecb.SetComponent<LocalTransform>(meshInstance, LocalTransform.FromPositionRotation(socketTrans.Position, quaternion.identity));
+
+            var dataE = ecb.Instantiate(dataPrefab);
+
+            ecb.AddComponent<ChessPieceC>(dataE, new ChessPieceC
             {
-                Value = boardE
+                chessType = type,
+                isWhite = isWhite,
             });
 
-            ecb.AddComponent<ChessSocketC>(instance, SystemAPI.GetComponent<ChessSocketC>(item.socketE));
-            ecb.SetComponent<LocalTransform>(instance, LocalTransform.FromPositionRotation(socketTrans.Position, quaternion.identity));
+            ecb.AddComponent<ChessSocketC>(dataE, SystemAPI.GetComponent<ChessSocketC>(item.socketE));
+            ecb.AddBuffer<ChessPiecePossibleSteps>(dataE);
+
+            ecb.AppendToBuffer<ChessBoardAllPiecesMeshes>(boardE, new ChessBoardAllPiecesMeshes
+            {
+                meshPieceE = meshInstance,
+            });
+
+            ecb.AppendToBuffer<ChessBoardAllPiecesData>(boardE, new ChessBoardAllPiecesData
+            {
+                dataPieceE = dataE
+            });
+            pieceIndex++;
         }
     }
 }
