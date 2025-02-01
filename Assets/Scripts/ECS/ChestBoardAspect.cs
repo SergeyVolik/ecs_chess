@@ -68,7 +68,7 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
     private readonly DynamicBuffer<ChessBoardBlackPiecesBuffer> boardPiecesBlack;
     private readonly DynamicBuffer<ChessBoardWhitePiecesBuffer> boardPiecesWhite;
 
-    public readonly RefRW<ChessBoardInstanceT> instanceC;
+    public readonly RefRW<ChessBoardInstanceC> instanceC;
     public readonly RefRW<ChessBoardTurnC> turnC;
 
     public readonly DynamicBuffer<LinkedEntityGroup> liked;
@@ -100,6 +100,11 @@ readonly partial struct ChessBoardInstanceAspect : IAspect
     public Entity GetCurrentKing()
     {
         return IsWhiteStep() ? instanceC.ValueRO.whiteKingE : instanceC.ValueRO.blackKingE;
+    }
+
+    public Entity GetOponentKing()
+    {
+        return IsWhiteStep() ? instanceC.ValueRO.blackKingE : instanceC.ValueRO.whiteKingE;
     }
 
     public Entity GetWhiteKing()

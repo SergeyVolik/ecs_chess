@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Entities;
@@ -64,8 +65,6 @@ public struct MoveChess : IComponentData
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial class PlayerTurnServerSystem : SystemBase
 {
-
-
     public struct SavedPieceTransformationData
     {
         public Entity socket;
@@ -86,7 +85,7 @@ public partial class PlayerTurnServerSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        RequireForUpdate<ChessBoardInstanceT>();
+        RequireForUpdate<ChessBoardInstanceC>();
         m_PrevRealMoves = new NativeList<PrevMove>(Allocator.Persistent);
 
         m_TempSnapshot = new BoardShapshot
@@ -95,12 +94,285 @@ public partial class PlayerTurnServerSystem : SystemBase
             sockets = new NativeList<SocketSnapshotData>(Allocator.Persistent)
         };
     }
+
     protected override void OnDestroy()
     {
         base.OnDestroy();
 
         m_PrevRealMoves.Dispose();
         m_TempSnapshot.Dispose();
+    }
+
+    public int CalculateBoardScore(bool isWhitePlayer, NativeArray<Entity> boardPieces, bool isFinished)
+    {
+        int score = 0;
+
+        foreach (var pieceE in boardPieces)
+        {
+            var chessPiece = SystemAPI.GetComponentRO<ChessPieceC>(pieceE);
+
+            if (chessPiece.ValueRO.isNotActive)
+                continue;
+
+            int mult = isWhitePlayer == chessPiece.ValueRO.isWhite ? -1 : 1;
+            int pieceScore = 0;
+            switch (chessPiece.ValueRO.chessType)
+            {
+                case ChessType.Pawn:
+                    pieceScore = 10;
+                    break;
+                case ChessType.Bishop:
+                    pieceScore = 30;
+                    break;
+                case ChessType.Rook:
+                    pieceScore = 50;
+                    break;
+                case ChessType.Knight:
+                    pieceScore = 30;
+                    break;
+                case ChessType.Queen:
+                    pieceScore = 90;
+                    break;
+                case ChessType.King:
+                    pieceScore = 900;
+
+                    break;
+                default:
+                    break;
+            }
+
+            pieceScore *= mult;
+
+            score += pieceScore;
+        }
+
+        var turnC = SystemAPI.GetSingleton<ChessBoardTurnC>();
+
+        if (turnC.isWhite == isWhitePlayer && isFinished)
+        {
+            score += 10000 * -1;
+        }
+        else if(turnC.isWhite != isWhitePlayer && isFinished)
+        {
+            score += 10000;
+        }
+
+        return score;
+    }
+
+    void MinMaxAiMove()
+    {
+        var boardPieces = SystemAPI
+            .GetSingletonBuffer<ChessBoardAllPiecesData>(true)
+            .ToNativeArray(Allocator.Temp)
+            .Reinterpret<Entity>();
+
+        var whitePieces = new NativeList<Entity>(Allocator.Temp);
+        var blackPieces = new NativeList<Entity>(Allocator.Temp);
+
+        foreach (var item in boardPieces)
+        {
+            var pieceData = SystemAPI.GetComponent<ChessPieceC>(item);
+
+            if (pieceData.isWhite)
+            {
+                whitePieces.Add(item);
+            }
+            else
+            {
+                blackPieces.Add(item);
+            }
+        }
+
+        var isWhitePlayer = SystemAPI.GetSingleton<ChessPlayerC>().isWhite;
+
+        int maxScore = int.MinValue;
+
+        maxScore = FindMaxScore(
+            whitePieces.AsArray(),
+            blackPieces.AsArray(),
+            boardPieces,
+            isWhitePlayer,
+            1,
+            0,
+            maxScore,
+            out var scoreAndMove);
+
+
+        Debug.Log($"Max Score {maxScore}");
+      
+        var moveFrom = SystemAPI.GetComponent<ChessSocketC>(scoreAndMove.moveFrom);
+        var moveTo = SystemAPI.GetComponent<ChessSocketC>(scoreAndMove.moveTo);
+        Debug.Log($"Move {moveFrom.x}:{moveFrom.y} -> {moveTo.x}:{moveTo.y}");
+
+        if (!SystemAPI.HasComponent<ChessSocketC>(scoreAndMove.moveFrom) || !SystemAPI.HasComponent<ChessSocketC>(scoreAndMove.moveTo))
+        {
+            throw new Exception("Ai move error");
+        }
+
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        TryMoveChess(scoreAndMove.moveFrom, scoreAndMove.moveTo, ecb, out _, true);
+        ecb.Playback(EntityManager);
+
+        NextTurn();
+    }
+
+    struct ScoreAndMove
+    {
+        public int score;
+        public Entity moveFrom;
+        public Entity moveTo;
+    }
+
+    public struct SortComparerMinMax : IComparer<ScoreAndMove>
+    {
+        int IComparer<ScoreAndMove>.Compare(ScoreAndMove x, ScoreAndMove y)
+        {
+            return x.score - y.score;
+        }
+    }
+
+    public struct SortComparerMaxMin : IComparer<ScoreAndMove>
+    {
+        int IComparer<ScoreAndMove>.Compare(ScoreAndMove x, ScoreAndMove y)
+        {
+            return y.score - x.score;
+        }
+    }
+
+    int FindMaxScore(
+        NativeArray<Entity> whitePieces,
+        NativeArray<Entity> blackPieces,
+        NativeArray<Entity> boardPieces,
+        bool isWhitePlayer,
+        int maxDepth,
+        int currentDepth,
+        int prevScore,
+        out ScoreAndMove scoreAndMove)
+    {
+        int bestScore = prevScore;
+        scoreAndMove = new ScoreAndMove();
+
+        if (currentDepth > maxDepth)
+            return prevScore;
+
+        currentDepth++;
+
+        BoardShapshot shapshot = new BoardShapshot
+        {
+            pieces = new NativeList<PieceSnapshotData>(Allocator.Temp),
+            sockets = new NativeList<SocketSnapshotData>(Allocator.Temp),
+        };
+
+        var aiPieces = isWhitePlayer ? blackPieces : whitePieces;
+
+        shapshot = CalculateSnapshot(shapshot);
+
+        foreach (var piece in aiPieces)
+        {
+            var moves = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(piece).ToNativeArray(Allocator.Temp);
+            var pieceSocket = SystemAPI.GetComponentRO<ChessSocketC>(piece).ValueRO.socketE;    
+
+            foreach (var item in moves)
+            {
+                SystemAPI.GetSingletonRW<ChessBoardTurnC>().ValueRW.isWhite = !isWhitePlayer;
+
+                var moveTo = item.defaultMoveTO.socketE;
+
+                var ecb = new EntityCommandBuffer(Allocator.Temp);
+                TryMoveChess(pieceSocket, moveTo, ecb, out _, false);
+                ecb.Playback(EntityManager);
+           
+                //RecalculateBoard(out bool isFinished);
+                RecalculatePossibleStepsForBoard();
+                int calculatedScore = CalculateBoardScore(isWhitePlayer, boardPieces, false);
+
+                calculatedScore = FindMinScore(whitePieces, blackPieces, boardPieces, isWhitePlayer, maxDepth, currentDepth, calculatedScore, out _);
+                Debug.Log($"Score {calculatedScore}");
+                if (prevScore <= calculatedScore)
+                {
+                    prevScore = calculatedScore;
+                    bestScore = calculatedScore;
+                    scoreAndMove = new ScoreAndMove
+                    {
+                        moveTo = moveTo,
+                        moveFrom = pieceSocket,
+                        score = calculatedScore
+                    };
+                }
+
+                var ecb1 = new EntityCommandBuffer(Allocator.Temp);
+                ReturnBoardToSnapshot(shapshot, true, ecb1);
+                ecb1.Playback(EntityManager);
+            }
+        }
+
+        return bestScore;
+    }
+
+    int FindMinScore(
+       NativeArray<Entity> whitePieces,
+       NativeArray<Entity> blackPieces,
+       NativeArray<Entity> boardPieces,
+       bool isWhitePlayer,
+       int maxDepth,
+       int currentDepth,
+       int prevScore,
+       out ScoreAndMove scoreAndMove)
+    {
+        int minScore = prevScore;
+        scoreAndMove = new ScoreAndMove();
+        if (currentDepth > maxDepth)
+            return prevScore;
+
+        currentDepth++;
+
+        BoardShapshot shapshot = new BoardShapshot
+        {
+            pieces = new NativeList<PieceSnapshotData>(Allocator.Temp),
+            sockets = new NativeList<SocketSnapshotData>(Allocator.Temp),
+        };
+        shapshot = CalculateSnapshot(shapshot);
+
+        var playerPieces = isWhitePlayer ? whitePieces : blackPieces;
+        foreach (var piece in playerPieces)
+        {
+            var moves = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(piece).ToNativeArray(Allocator.Temp);
+            var pieceSocket = SystemAPI.GetComponentRO<ChessSocketC>(piece).ValueRO.socketE;
+
+            foreach (var item in moves)
+            {
+                SystemAPI.GetSingletonRW<ChessBoardTurnC>().ValueRW.isWhite = isWhitePlayer;
+
+                var ecb = new EntityCommandBuffer(Allocator.Temp);
+                var moveTo = item.defaultMoveTO.socketE;
+                TryMoveChess(pieceSocket, moveTo, ecb, out _, false);
+                ecb.Playback(EntityManager);
+                //RecalculateBoard(out bool isFinished);
+                RecalculatePossibleStepsForBoard();
+                int calculatedScore = CalculateBoardScore(isWhitePlayer, boardPieces, false);
+
+                calculatedScore = FindMaxScore(whitePieces, blackPieces, boardPieces, isWhitePlayer, maxDepth, currentDepth, calculatedScore, out _);
+
+                if (prevScore >= calculatedScore)
+                {
+                    prevScore = calculatedScore;
+                    minScore = calculatedScore;
+                    scoreAndMove = new ScoreAndMove
+                    {
+                        moveTo = moveTo,
+                        moveFrom = pieceSocket,
+                        score = calculatedScore
+                    };
+                }
+
+                var ecb1 = new EntityCommandBuffer(Allocator.Temp);
+                ReturnBoardToSnapshot(shapshot, true, ecb1);
+                ecb1.Playback(EntityManager);
+            }
+        }
+
+        return minScore;
     }
 
     BoardShapshot CalculateSnapshot(BoardShapshot snapshot)
@@ -192,6 +464,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         }
     }
 
+    float aiThinkT;
     protected override void OnUpdate()
     {
         InitBoard();
@@ -201,6 +474,20 @@ public partial class PlayerTurnServerSystem : SystemBase
         if (needMove)
         {
             ExecuteMove(moveData);
+        }
+
+        if (m_NeedAiMove)
+        {
+            aiThinkT += SystemAPI.Time.DeltaTime;
+
+            if (aiThinkT > 1)
+            {
+                aiThinkT = 0;
+                m_NeedAiMove = false;
+                Debug.Log($"[Server] ai moved");
+
+                MinMaxAiMove();                
+            }
         }
     }
 
@@ -249,15 +536,71 @@ public partial class PlayerTurnServerSystem : SystemBase
     private void NextTurn()
     {
         GetBoard().NextTurn();
-        RecalculateBoard();
+        RecalculateBoard(out bool isGameFinished);
+        
+        if (isGameFinished)
+        {
+            var board = GetBoard(); 
+            bool isWhiteStep = board.IsWhiteStep();
+            var king = board.GetCurrentKing();
+            bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
+
+            Debug.Log($"[Server] game ended");
+            board = GetBoard();
+            board.instanceC.ValueRW.blockInput = true;
+
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            var endGameE = ecb.CreateEntity();
+
+            if (isKingUnderAttack)
+            {
+                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
+                {
+                    isDraw = false,
+                    isWhiteWin = !isWhiteStep,
+                    endReason = EndReason.Win
+                });
+            }
+            else
+            {
+                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
+                {
+                    isDraw = true,
+                    isWhiteWin = !isWhiteStep,
+                    endReason = EndReason.Draw
+                });
+            }
+            ecb.Playback(EntityManager);
+        }
+        else
+        {
+            Debug.Log($"[Server] game continue");
+
+            if (GameManager.Instance.GameMode == GameMode.VsBot && IsAiMove())
+            {
+                Debug.Log($"[Server] ai start moveing");
+                m_NeedAiMove = IsAiMove();
+            }
+        }  
     }
 
+    public bool IsAiMove()
+    {
+        if (GameManager.Instance.GameMode != GameMode.VsBot)
+            return false;
 
-    private void RecalculateBoard()
+        var player = SystemAPI.GetSingleton<ChessPlayerC>();
+        var currentTurn = SystemAPI.GetSingleton<ChessBoardTurnC>();
+
+        return GameManager.Instance.GameMode == GameMode.VsBot && player.isWhite != currentTurn.isWhite;
+    }
+
+    private void RecalculateBoard(out bool isGameFinished)
     {
         ChessBoardInstanceAspect board = GetBoard();
         RecalculatePossibleStepsForBoard();
-        bool isWhiteStep = board.IsWhiteStep();
+     
         var king = board.GetCurrentKing();
         var currentPlayerPiecesIds = board.GetCurrentPlayerPiecesIds();
 
@@ -310,8 +653,6 @@ public partial class PlayerTurnServerSystem : SystemBase
                 ecb2.Playback(EntityManager);
 
                 RecalculatePossibleStepsForBoard();
-
-               
             }
 
             allPiecesSteps.Add(steps);
@@ -336,42 +677,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             }
         }
 
-        if (IsGameFinished())
-        {
-            bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
-
-            Debug.Log($"[Server] game ended");
-            board = GetBoard();
-            board.instanceC.ValueRW.blockInput = true;
-
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
-
-            var endGameE = ecb.CreateEntity();
-
-            if (isKingUnderAttack)
-            {
-                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
-                {
-                    isDraw = false,
-                    isWhiteWin = !isWhiteStep,
-                    endReason = EndReason.Win
-                });
-            }
-            else 
-            {
-                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
-                {
-                    isDraw = true,
-                    isWhiteWin = !isWhiteStep,
-                    endReason = EndReason.Draw
-                });
-            }
-            ecb.Playback(EntityManager);
-        }
-        else
-        {
-            Debug.Log($"[Server] game continue");
-        }
+        isGameFinished = IsGameFinished();
     }
 
     void ShowSelectedAndTurns(EntityCommandBuffer ecb)
@@ -491,6 +797,8 @@ public partial class PlayerTurnServerSystem : SystemBase
     }
 
     float3 lastMoveRaycastPos;
+    private bool m_NeedAiMove;
+
     void MoveOrSelect(out bool needMove, out MoveChess moveData)
     {
         moveData = new MoveChess { fromIndex = -1, toIndex = -1 };
@@ -700,12 +1008,12 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     Entity GetBoardEntity()
     {
-        return SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+        return SystemAPI.GetSingletonEntity<ChessBoardInstanceC>();
     }
 
     ChessBoardInstanceAspect GetBoard()
     {
-        var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+        var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceC>();
         return SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
     }
 
@@ -900,7 +1208,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         bool killed = false;
 
         if (HasPieceInSlot(moveToSocket))
-        {          
+        {
             killed = true;
 
             var socketPieceData = SystemAPI.GetComponentRW<ChessSocketPieceIdC>(moveToSocket);
@@ -919,7 +1227,7 @@ public partial class PlayerTurnServerSystem : SystemBase
             if (isRealMove)
             {
                 DestoryPieceFeedback(moveToSocket, pieceToDestory.ValueRO, ecb);
-            } 
+            }
         }
 
         return killed;
@@ -957,10 +1265,11 @@ public partial class PlayerTurnServerSystem : SystemBase
     bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb, out bool killed, bool isRealMove = true)
     {
         killed = false;
-        if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
-        {
-            return false;
-        }
+        //if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
+        //{
+        //    Debug.LogError("Can't move piece");
+        //    return false;
+        //}
         var board = GetBoard();
 
         var moveFromPieceId = SystemAPI.GetComponent<ChessSocketPieceIdC>(moveFromSocket).pieceId;
@@ -1011,7 +1320,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                     AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
                 }
             }
-            else 
+            else
             {
                 MovePieceFromToSocketTemp(moveFromSocket, step.TakeOfThePassData.moveToSocket.socketE);
                 DestoryPieceFromSocket(step.TakeOfThePassData.destoryPieceSocket.socketE, ecb, isRealMove);
@@ -1023,9 +1332,8 @@ public partial class PlayerTurnServerSystem : SystemBase
 
             if (isRealMove && !killed)
             {
-                Debug.Log("Not killed");
                 AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
-            }            
+            }
 
             var pieceId = SystemAPI.GetComponent<ChessSocketPieceIdC>(moveFromSocket);
             var pieceE = board.GetPieceDataById(pieceId.pieceId);
@@ -1044,7 +1352,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 {
                     MovePieceFromToSocketTemp(moveFromSocket, moveToSocket);
                 }
-             
+
                 var isWhite = pieceData.isWhite;
 
                 if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
@@ -1079,7 +1387,7 @@ public partial class PlayerTurnServerSystem : SystemBase
                 {
                     MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
                 }
-                else 
+                else
                 {
                     MovePieceFromToSocketTemp(moveFromSocket, moveToSocket);
                 }
@@ -1268,18 +1576,15 @@ public partial class PlayerTurnServerSystem : SystemBase
                     FindTakeOfThePassPaw(socketFromMoveC.x - 1, socketFromMoveC.y, boardAspect, turnPositions, offset);
                 }
 
-                if (turnPositions.Length == 0)
-                {
-                    x = socketFromMoveC.x;
-                    y = socketFromMoveC.y + offset;
+                x = socketFromMoveC.x;
+                y = socketFromMoveC.y + offset;
 
-                    if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out bool hasEnemy))
+                if (TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out bool hasEnemy))
+                {
+                    if (!hasEnemy && !pieceDataToMove.ValueRO.isMovedOnce)
                     {
-                        if (!hasEnemy && !pieceDataToMove.ValueRO.isMovedOnce)
-                        {
-                            y += offset;
-                            TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out hasEnemy);
-                        }
+                        y += offset;
+                        TryAddTurn(x, y, false, true, boardAspect, turnPositions, isWhite, out hasEnemy);
                     }
                 }
 

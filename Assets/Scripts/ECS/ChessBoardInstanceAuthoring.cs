@@ -45,7 +45,7 @@ public class ChessBoardInstanceAuthoring : MonoBehaviour
         public override void Bake(ChessBoardInstanceAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent<ChessBoardInstanceT>(entity);
+            AddComponent<ChessBoardInstanceC>(entity);
             AddComponent<ChessBoardTimerC>(entity);
             AddComponentObject<ChessBoardInstanceSpawnConfigC>(entity, new ChessBoardInstanceSpawnConfigC
             {

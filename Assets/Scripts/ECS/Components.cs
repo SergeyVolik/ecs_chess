@@ -67,7 +67,7 @@ public struct ChessBoardPersistentC : IComponentData
 
 }
 
-public struct ChessBoardInstanceT : IComponentData
+public struct ChessBoardInstanceC : IComponentData
 {
     [GhostField] public Entity whiteKingE;
     [GhostField] public Entity blackKingE;

@@ -33,7 +33,10 @@ public class MainMenuUI : BaseGameUI
 
         playVsBotButton.onClick.AddListener(() =>
         {
-           
+            GameManager.Instance.PlayVsBot((_) => {
+                Hide();
+                UIPages.Instance.gameUi.Show();
+            });
         });
     }
 }

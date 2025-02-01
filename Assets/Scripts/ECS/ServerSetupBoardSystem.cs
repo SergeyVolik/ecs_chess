@@ -31,7 +31,7 @@ public partial struct ServerSetupBoardSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        bool isBoardCreated = SystemAPI.HasSingleton<ChessBoardInstanceT>();
+        bool isBoardCreated = SystemAPI.HasSingleton<ChessBoardInstanceC>();
         if (!isBoardCreated)
         {
             Debug.Log("[Server] create board");
@@ -166,7 +166,7 @@ public partial struct ServerSetupBoardSystem : ISystem
         white.Clear();
 
         var boardAspect = SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
-        var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceT>(boardE);
+        var bInstance = SystemAPI.GetComponentRW<ChessBoardInstanceC>(boardE);
 
         for (int i = 0; i < boardAspect.allPiecesDataB.Length; i++)
         {

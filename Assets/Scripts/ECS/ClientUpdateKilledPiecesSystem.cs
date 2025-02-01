@@ -18,11 +18,11 @@ public partial class ClientUpdateKilledPiecesSystem : SystemBase
         var ui = UIPages.Instance.gameUi;
 
 
-        if (SystemAPI.HasSingleton<ChessBoardInstanceT>())
+        if (SystemAPI.HasSingleton<ChessBoardInstanceC>())
         {
             foreach (var (d, e) in SystemAPI.Query<NetworkStreamInGame>().WithNone<KilledViewInitedT>().WithEntityAccess())
             {
-                var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
+                var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceC>();
                 var killedPieces = SystemAPI.GetBuffer<KilledPieces>(boardE);
 
                 ui.blackView.Clear();

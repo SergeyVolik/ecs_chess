@@ -8,7 +8,7 @@ public partial class PlayerInputClientSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        RequireForUpdate<ChessBoardInstanceT>();
+        RequireForUpdate<ChessBoardInstanceC>();
         RequireForUpdate<EnablePlayerInputT>();
     }
 
@@ -17,7 +17,7 @@ public partial class PlayerInputClientSystem : SystemBase
         bool hasInput = Input.GetMouseButton(0) || Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0);
         if (hasInput)
         {
-            var board = SystemAPI.GetSingleton<ChessBoardInstanceT>();
+            var board = SystemAPI.GetSingleton<ChessBoardInstanceC>();
 
             if (board.blockInput)
                 return;

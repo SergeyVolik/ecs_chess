@@ -29,6 +29,7 @@ public class GameManager : MonoBehaviour
     public void PlayVsBot(Action<Result> result)
     {
         GameMode = GameMode.VsBot;
+        ConnectionManager.Instance.CreateClientServerLocalHost(result);
         GameManager.Instance.EnableInput();
     }
 
