@@ -1,4 +1,5 @@
 using System;
+using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -54,15 +55,16 @@ public struct BoardShapshot : IDisposable
         pieces.Clear();
     }
 }
+public struct MoveChess : IComponentData
+{
+    public int fromIndex;
+    public int toIndex;
+}
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial class PlayerTurnServerSystem : SystemBase
 {
-    public struct MoveChess : IComponentData
-    {
-        public int fromIndex;
-        public int toIndex;
-    }
+
 
     public struct SavedPieceTransformationData
     {
@@ -75,9 +77,6 @@ public partial class PlayerTurnServerSystem : SystemBase
     private Entity m_LastSelectedSocket;
     private Entity m_LastSelectedPieceE;
     private Entity m_LastSelectedPieceMeshE;
-
-
-    public PrevMove prevMoveDataTemp;
 
     public NativeList<PrevMove> m_PrevRealMoves;
 
@@ -291,9 +290,12 @@ public partial class PlayerTurnServerSystem : SystemBase
                     continue;
                 }
 
-                var ecb = new EntityCommandBuffer(Allocator.Temp);
                 m_TempSnapshot = CalculateSnapshot(m_TempSnapshot);
-                MovePieceFromToSocketTemp(socketC.socketE, item1.defaultMoveTO.socketE);
+
+                var ecb1 = new EntityCommandBuffer(Allocator.Temp);
+                TryMoveChess(socketC.socketE, item1.defaultMoveTO.socketE, ecb1, out _, false);
+                ecb1.Playback(EntityManager);
+
                 RecalculatePossibleStepsForBoard();
 
                 bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
@@ -303,10 +305,13 @@ public partial class PlayerTurnServerSystem : SystemBase
                     steps.Add(item1);
                 }
 
-                ReturnBoardToSnapshot(m_TempSnapshot, false, ecb);
+                var ecb2 = new EntityCommandBuffer(Allocator.Temp);
+                ReturnBoardToSnapshot(m_TempSnapshot, false, ecb2);
+                ecb2.Playback(EntityManager);
+
                 RecalculatePossibleStepsForBoard();
 
-                ecb.Playback(EntityManager);
+               
             }
 
             allPiecesSteps.Add(steps);
@@ -772,7 +777,7 @@ public partial class PlayerTurnServerSystem : SystemBase
 
     private bool MovePieceFromToSocketTemp(Entity fromSocket, Entity toSocket)
     {
-        return MovePieceToSocketData(fromSocket, toSocket, out prevMoveDataTemp);
+        return MovePieceToSocketData(fromSocket, toSocket, out _);
     }
 
     private bool MovePieceFromToSocketReal(Entity fromSocket, Entity toSocket)
@@ -877,15 +882,12 @@ public partial class PlayerTurnServerSystem : SystemBase
         return false;
     }
 
-    public bool DestoryPieceFromSocket(Entity moveToSocket, EntityCommandBuffer ecb)
+    public bool DestoryPieceFromSocket(Entity moveToSocket, EntityCommandBuffer ecb, bool isRealMove)
     {
         bool killed = false;
 
         if (HasPieceInSlot(moveToSocket))
-        {
-            AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
-            PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
-
+        {          
             killed = true;
 
             var socketPieceData = SystemAPI.GetComponentRW<ChessSocketPieceIdC>(moveToSocket);
@@ -901,34 +903,45 @@ public partial class PlayerTurnServerSystem : SystemBase
             var pieceToDestory = SystemAPI.GetComponentRW<ChessPieceC>(pieceDataE);
             pieceToDestory.ValueRW.isNotActive = true;
 
-            board.killedPieces.Add(new KilledPieces
+            if (isRealMove)
             {
-                chessType = pieceToDestory.ValueRO.chessType,
-                isWhite = pieceToDestory.ValueRO.isWhite,
-            });
-
-            var updatePiecesViewE = ecb.CreateEntity();
-            ecb.AddComponent<SendRpcCommandRequest>(updatePiecesViewE);
-            ecb.AddComponent<AddKilledPiecesRPC>(updatePiecesViewE, new AddKilledPiecesRPC
-            {
-                data = pieceToDestory.ValueRO
-            });
-
-            if (GetOponentEntity(out Entity oponent))
-            {
-                var shakeEntity = ecb.CreateEntity();
-                ecb.AddComponent<ShakeCameraRpc>(shakeEntity);
-                ecb.AddComponent<SendRpcCommandRequest>(shakeEntity, new SendRpcCommandRequest
-                {
-                    TargetConnection = oponent
-                });
-            }
+                DestoryPieceFeedback(moveToSocket, pieceToDestory.ValueRO, ecb);
+            } 
         }
 
         return killed;
     }
 
-    bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb, out bool killed)
+    void DestoryPieceFeedback(Entity moveToSocket, ChessPieceC pieceToDestory, EntityCommandBuffer ecb)
+    {
+        var board = GetBoard();
+
+        AudioManager.Instance.PlayRequest(SfxType.Kill, ecb);
+        PlayParticle.Instance.PlayRequest(SystemAPI.GetComponent<LocalTransform>(moveToSocket).Position, ParticleType.Kill, ecb);
+        board.killedPieces.Add(new KilledPieces
+        {
+            chessType = pieceToDestory.chessType,
+            isWhite = pieceToDestory.isWhite,
+        });
+        var updatePiecesViewE = ecb.CreateEntity();
+        ecb.AddComponent<SendRpcCommandRequest>(updatePiecesViewE);
+        ecb.AddComponent<AddKilledPiecesRPC>(updatePiecesViewE, new AddKilledPiecesRPC
+        {
+            data = pieceToDestory
+        });
+
+        if (GetOponentEntity(out Entity oponent))
+        {
+            var shakeEntity = ecb.CreateEntity();
+            ecb.AddComponent<ShakeCameraRpc>(shakeEntity);
+            ecb.AddComponent<SendRpcCommandRequest>(shakeEntity, new SendRpcCommandRequest
+            {
+                TargetConnection = oponent
+            });
+        }
+    }
+
+    bool TryMoveChess(Entity moveFromSocket, Entity moveToSocket, EntityCommandBuffer ecb, out bool killed, bool isRealMove = true)
     {
         killed = false;
         if (!IsCorrectSocketToMove(moveFromSocket, moveToSocket))
@@ -948,33 +961,58 @@ public partial class PlayerTurnServerSystem : SystemBase
                 step = item;
         }
 
-        foreach (var item in m_PrevRealMoves)
+        if (isRealMove)
         {
-            SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.from).DestoryPrevMove(ecb);
-            SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.to).DestoryPrevMove(ecb);
+            foreach (var item in m_PrevRealMoves)
+            {
+                SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.from).DestoryPrevMove(ecb);
+                SystemAPI.GetAspect<ChessSocketHighlightAspect>(item.to).DestoryPrevMove(ecb);
+            }
         }
 
         if (step.is—astling)
         {
-            AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
+            if (isRealMove)
+            {
+                AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
 
-            MovePieceFromToSocketWithChatMessage(moveFromSocket, step.castlingMove.kingMoveTo.socketE, ecb);
-            MovePieceFromToSocketWithChatMessage(moveToSocket, step.castlingMove.rookMoveTo.socketE, ecb);
+                MovePieceFromToSocketWithChatMessage(moveFromSocket, step.castlingMove.kingMoveTo.socketE, ecb);
+                MovePieceFromToSocketWithChatMessage(moveToSocket, step.castlingMove.rookMoveTo.socketE, ecb);
+            }
+            else
+            {
+                MovePieceFromToSocketTemp(moveFromSocket, step.castlingMove.kingMoveTo.socketE);
+                MovePieceFromToSocketTemp(moveToSocket, step.castlingMove.rookMoveTo.socketE);
+            }
         }
         else if (step.isTakeOfThePass)
         {
-            MovePieceFromToSocketWithChatMessage(moveFromSocket, step.TakeOfThePassData.moveToSocket.socketE, ecb);
+            if (isRealMove)
+            {
+                MovePieceFromToSocketWithChatMessage(moveFromSocket, step.TakeOfThePassData.moveToSocket.socketE, ecb);
 
-            killed = DestoryPieceFromSocket(step.TakeOfThePassData.destoryPieceSocket.socketE, ecb);
+                killed = DestoryPieceFromSocket(step.TakeOfThePassData.destoryPieceSocket.socketE, ecb, isRealMove);
+
+                if (isRealMove && !killed)
+                {
+                    AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
+                }
+            }
+            else 
+            {
+                MovePieceFromToSocketTemp(moveFromSocket, step.TakeOfThePassData.moveToSocket.socketE);
+                DestoryPieceFromSocket(step.TakeOfThePassData.destoryPieceSocket.socketE, ecb, isRealMove);
+            }
         }
         else
         {
-            killed = DestoryPieceFromSocket(moveToSocket, ecb);
+            killed = DestoryPieceFromSocket(moveToSocket, ecb, isRealMove);
 
-            if (!killed)
+            if (isRealMove && !killed)
             {
+                Debug.Log("Not killed");
                 AudioManager.Instance.PlayRequest(SfxType.Move, ecb);
-            }
+            }            
 
             var pieceId = SystemAPI.GetComponent<ChessSocketPieceIdC>(moveFromSocket);
             var pieceE = board.GetPieceDataById(pieceId.pieceId);
@@ -985,7 +1023,15 @@ public partial class PlayerTurnServerSystem : SystemBase
             //pawn promotion
             if (pieceData.chessType == ChessType.Pawn)
             {
-                MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+                if (isRealMove)
+                {
+                    MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+                }
+                else
+                {
+                    MovePieceFromToSocketTemp(moveFromSocket, moveToSocket);
+                }
+             
                 var isWhite = pieceData.isWhite;
 
                 if (boardAspect.IsBoardEnd(isWhite, boardAspect.IndexOf(moveToSocket)))
@@ -1016,7 +1062,14 @@ public partial class PlayerTurnServerSystem : SystemBase
             }
             else
             {
-                MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+                if (isRealMove)
+                {
+                    MovePieceFromToSocketWithChatMessage(moveFromSocket, moveToSocket, ecb);
+                }
+                else 
+                {
+                    MovePieceFromToSocketTemp(moveFromSocket, moveToSocket);
+                }
             }
         }
         return true;
