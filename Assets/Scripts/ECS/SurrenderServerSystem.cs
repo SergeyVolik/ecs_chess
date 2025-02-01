@@ -35,7 +35,7 @@ public partial class SurrenderServerSystem : SystemBase
                 {
                     isDraw = false,
                     isWhiteWin = !playerData.isWhite,
-                     winReason = WinReason.OponentSurrendreed 
+                     endReason = EndReason.OponentSurrendreed 
                 });
             }
         }

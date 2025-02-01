@@ -7,7 +7,7 @@ public struct ExecuteEndGameC : IComponentData
 {
     public bool isDraw;
     public bool isWhiteWin;
-    public WinReason winReason;
+    public EndReason endReason;
 }
 
 public struct GameEndedC : IComponentData
@@ -42,11 +42,16 @@ public partial class EndGameServerSystem : SystemBase
             EntityManager.AddComponent<SendRpcCommandRequest>(request);
             EntityManager.AddComponentData<EndGameRPC>(request, new EndGameRPC
             {
-                isWhiteWin = endGame.isWhiteWin,
-                winReason = endGame.winReason
+                 endGameData = endGame
             });
 
-            Debug.Log($"[Server] winner white:{endGame.isWhiteWin}");
+            if (endGame.isDraw)
+            {
+                Debug.Log($"[Server] no winner");
+            }
+            else {
+                Debug.Log($"[Server] winner white:{endGame.isWhiteWin}");
+            }
         }
     }
 }

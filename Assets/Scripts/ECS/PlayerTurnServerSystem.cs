@@ -8,16 +8,16 @@ using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
 
-public enum WinReason
+public enum EndReason
 {
     Win,
-    OponentSurrendreed
+    OponentSurrendreed,
+    Draw
 }
 
 public struct EndGameRPC : IRpcCommand
 {
-    public bool isWhiteWin;
-    public WinReason winReason;
+    public ExecuteEndGameC endGameData;
 }
 
 public struct PieceSnapshotData
@@ -338,6 +338,8 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         if (IsGameFinished())
         {
+            bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
+
             Debug.Log($"[Server] game ended");
             board = GetBoard();
             board.instanceC.ValueRW.blockInput = true;
@@ -346,13 +348,24 @@ public partial class PlayerTurnServerSystem : SystemBase
 
             var endGameE = ecb.CreateEntity();
 
-            ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
+            if (isKingUnderAttack)
             {
-                isDraw = false,
-                isWhiteWin = !isWhiteStep,
-                winReason = WinReason.Win
-            });
-
+                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
+                {
+                    isDraw = false,
+                    isWhiteWin = !isWhiteStep,
+                    endReason = EndReason.Win
+                });
+            }
+            else 
+            {
+                ecb.AddComponent<ExecuteEndGameC>(endGameE, new ExecuteEndGameC
+                {
+                    isDraw = true,
+                    isWhiteWin = !isWhiteStep,
+                    endReason = EndReason.Draw
+                });
+            }
             ecb.Playback(EntityManager);
         }
         else

@@ -11,20 +11,36 @@ public partial class OpenWinUIClientSystem : SystemBase
         {
             ecb.DestroyEntity(entity);
             string reasonText = "";
-            switch (rpc.winReason)
+            switch (rpc.endGameData.endReason)
             {
-                case WinReason.Win:
+                case EndReason.Win:
                     reasonText = "Checkmate!";
                     break;
-                case WinReason.OponentSurrendreed:
+                case EndReason.OponentSurrendreed:
                     reasonText = $"Oponent Surrendered!";
+                    break;
+                case EndReason.Draw:
+                    reasonText = $"Draw!";
                     break;
                 default:
                     break;
             }
+            string winnerText;
 
-            string winnerText = rpc.isWhiteWin ? "White" : "Black";        
-            UIPages.Instance.winUi.ShowWin($"{winnerText} Won!", reasonText);
+            if (rpc.endGameData.isDraw)
+            {
+                winnerText = "No Winner";
+            }
+            else if (rpc.endGameData.isWhiteWin)
+            {
+                winnerText = "White Won!";
+            }
+            else {
+                winnerText = "Black Won!";
+
+            }
+           
+            UIPages.Instance.winUi.ShowWin(winnerText, reasonText);
         }
         ecb.Playback(EntityManager);
     }
