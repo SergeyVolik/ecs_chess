@@ -25,6 +25,46 @@ public struct ChessBoardPersistentC : IComponentData
 
     public ChessPiecesPrefabs blackPiecesDataPrefabs;
     public ChessPiecesPrefabs whitePiecesDataPrefabs;
+
+    public Entity InstantiateChessMesh(bool isWhite, ChessType type, EntityCommandBuffer ecb)
+    {
+        return InstantiateChess(isWhite, type ,ecb, whitePiecesMeshPrefabs, blackPiecesMeshPrefabs);
+    }
+
+    public Entity InstantiateChessData(bool isWhite, ChessType type, EntityCommandBuffer ecb)
+    {
+        return InstantiateChess(isWhite, type, ecb, whitePiecesDataPrefabs, blackPiecesDataPrefabs);
+    }
+
+    public Entity InstantiateChess(
+        bool isWhite,
+        ChessType type,
+        EntityCommandBuffer ecb,
+        ChessPiecesPrefabs whitePrefabs,
+        ChessPiecesPrefabs blackPrefabs)
+    {
+        var prefabs = isWhite ? whitePrefabs : blackPrefabs;
+        switch (type)
+        {
+            case ChessType.Pawn:
+                return ecb.Instantiate(prefabs.pawn);
+            case ChessType.Bishop:
+                return ecb.Instantiate(prefabs.bishop);
+            case ChessType.Rook:
+                return ecb.Instantiate(prefabs.rook);
+            case ChessType.Knight:
+                return ecb.Instantiate(prefabs.knight);
+            case ChessType.Queen:
+                return ecb.Instantiate(prefabs.queen);
+            case ChessType.King:
+                return ecb.Instantiate(prefabs.king);
+            default:
+                break;
+        }
+
+        return Entity.Null;
+    }
+
 }
 
 public struct ChessBoardInstanceT : IComponentData

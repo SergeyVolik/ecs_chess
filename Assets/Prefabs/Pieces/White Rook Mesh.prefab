@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8230097967544302680}
   - component: {fileID: 3400157760254350492}
   - component: {fileID: -6776189749007766109}
+  - component: {fileID: -6098707074317428992}
   m_Layer: 0
   m_Name: White Rook Mesh
   m_TagString: Untagged
@@ -71,6 +72,20 @@ MonoBehaviour:
   UsePreSerialization: 0
   RollbackPredictedSpawnedGhostState: 0
   RollbackPredictionOnStructuralChanges: 1
+--- !u!114 &-6098707074317428992
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2533128213471136779}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ebb17889d35feb049a2983ea3838cfee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chessType: 2
+  isWhite: 1
 --- !u!1001 &3882389300877802444
 PrefabInstance:
   m_ObjectHideFlags: 0

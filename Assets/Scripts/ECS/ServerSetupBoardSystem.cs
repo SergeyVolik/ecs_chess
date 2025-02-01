@@ -70,11 +70,6 @@ public partial struct ServerSetupBoardSystem : ISystem
                     socketE = socketInstance
                 });
 
-                ecb.AddComponent<Parent>(socketInstance, new Parent
-                {
-                    Value = boardE
-                });
-
                 sockets.Add(new ChessBoardInstanceSockets
                 {
                     socketE = socketInstance,

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6246391300268385339}
   - component: {fileID: 5348053317870244493}
   - component: {fileID: -833007344114061026}
+  - component: {fileID: -5773268239066181639}
   m_Layer: 0
   m_Name: White Pawn Mesh
   m_TagString: Untagged
@@ -71,6 +72,20 @@ MonoBehaviour:
   UsePreSerialization: 0
   RollbackPredictedSpawnedGhostState: 0
   RollbackPredictionOnStructuralChanges: 1
+--- !u!114 &-5773268239066181639
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7612165726262539954}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ebb17889d35feb049a2983ea3838cfee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chessType: 0
+  isWhite: 1
 --- !u!1001 &5063447066434259629
 PrefabInstance:
   m_ObjectHideFlags: 0

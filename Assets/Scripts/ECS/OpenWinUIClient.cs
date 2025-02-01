@@ -14,6 +14,7 @@ public partial class OpenWinUIClientSystem : SystemBase
             switch (rpc.winReason)
             {
                 case WinReason.Win:
+                    reasonText = "Checkmate!";
                     break;
                 case WinReason.OponentSurrendreed:
                     reasonText = $"Oponent Surrendered!";

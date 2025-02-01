@@ -1,12 +1,11 @@
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Physics;
 using Unity.Transforms;
-using Unity.VisualScripting;
 using UnityEngine;
-using static UnityEditor.ShaderData;
 
 public enum WinReason
 {
@@ -18,6 +17,42 @@ public struct EndGameRPC : IRpcCommand
 {
     public bool isWhiteWin;
     public WinReason winReason;
+}
+
+public struct PieceSnapshotData
+{
+    public ChessPieceC pieceC;
+    public ChessSocketC socketC;
+    public Entity pieceMesh;
+}
+public struct PrevMove
+{
+    public Entity from;
+    public Entity to;
+}
+
+public struct SocketSnapshotData
+{
+    public ChessSocketPieceIdC socketLinkC;
+}
+
+public struct BoardShapshot : IDisposable
+{
+    public NativeList<PieceSnapshotData> pieces;
+    public NativeList<SocketSnapshotData> sockets;
+    public bool isWhiteTurn;
+
+    public void Dispose()
+    {
+        pieces.Dispose();
+        sockets.Dispose();
+    }
+
+    public void Clear()
+    {
+        sockets.Clear();
+        pieces.Clear();
+    }
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -42,21 +77,120 @@ public partial class PlayerTurnServerSystem : SystemBase
     private Entity m_LastSelectedPieceMeshE;
 
 
-    public PrevMoveData prevMoveDataTemp;
+    public PrevMove prevMoveDataTemp;
 
-    public NativeList<PrevMoveData> m_PrevRealMoves;
+    public NativeList<PrevMove> m_PrevRealMoves;
 
     public SavedPieceTransformationData requireTransformData;
+
+    BoardShapshot m_TempSnapshot;
     protected override void OnCreate()
     {
         base.OnCreate();
         RequireForUpdate<ChessBoardInstanceT>();
-        m_PrevRealMoves = new NativeList<PrevMoveData>(Allocator.Persistent);
-    }
+        m_PrevRealMoves = new NativeList<PrevMove>(Allocator.Persistent);
 
+        m_TempSnapshot = new BoardShapshot
+        {
+            pieces = new NativeList<PieceSnapshotData>(Allocator.Persistent),
+            sockets = new NativeList<SocketSnapshotData>(Allocator.Persistent)
+        };
+    }
     protected override void OnDestroy()
     {
         base.OnDestroy();
+
+        m_PrevRealMoves.Dispose();
+        m_TempSnapshot.Dispose();
+    }
+
+    BoardShapshot CalculateSnapshot(BoardShapshot snapshot)
+    {
+        snapshot.Clear();
+        var board = GetBoard();
+        snapshot.isWhiteTurn = board.turnC.ValueRW.isWhite;
+        foreach (var item in board.boardSocketsB)
+        {
+            snapshot.sockets.Add(new SocketSnapshotData
+            {
+                socketLinkC = SystemAPI.GetComponent<ChessSocketPieceIdC>(item.socketE)
+            });
+        }
+
+        for (int i = 0; i < board.allPiecesDataB.Length; i++)
+        {
+            var pieceE = board.allPiecesDataB[i].dataPieceE;
+
+            var data = new PieceSnapshotData
+            {
+                pieceC = SystemAPI.GetComponent<ChessPieceC>(pieceE),
+                socketC = SystemAPI.GetComponent<ChessSocketC>(pieceE),
+                pieceMesh = board.allPiecesMeshesB[i].meshPieceE
+            };
+
+            snapshot.pieces.Add(data);
+        }
+
+        return snapshot;
+    }
+
+    void ReturnBoardToSnapshot(BoardShapshot snapshot, bool ignoreMesh, EntityCommandBuffer ecb)
+    {
+        var board = GetBoard();
+        board.turnC.ValueRW.isWhite = snapshot.isWhiteTurn;
+
+        for (int i = 0; i < snapshot.sockets.Length; i++)
+        {
+            var socket = board.boardSocketsB[i].socketE;
+            SystemAPI.SetComponent<ChessSocketPieceIdC>(socket, snapshot.sockets[i].socketLinkC);
+        }
+
+        var meshes = ecb.SetBuffer<ChessBoardAllPiecesMeshes>(board.Entity);
+        meshes.CopyFrom(board.allPiecesMeshesB);
+
+        for (int i = 0; i < snapshot.pieces.Length; i++)
+        {
+            var pieceDataE = board.allPiecesDataB[i].dataPieceE;
+
+            var pieceC = snapshot.pieces[i].pieceC;
+            SystemAPI.SetComponent<ChessPieceC>(pieceDataE, pieceC);
+            SystemAPI.SetComponent<ChessSocketC>(pieceDataE, snapshot.pieces[i].socketC);
+
+            if (!pieceC.isNotActive && !ignoreMesh)
+            {
+                var pieceMeshE = board.allPiecesMeshesB[i].meshPieceE;
+
+                if (SystemAPI.HasComponent<ChessPieceC>(pieceMeshE))
+                {
+                    var meshPieceD = SystemAPI.GetComponent<ChessPieceC>(pieceMeshE);
+
+                    if (meshPieceD.chessType != pieceC.chessType)
+                    {
+                        ecb.DestroyEntity(pieceMeshE);
+                        var boardPrefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
+                        meshes[i] = new ChessBoardAllPiecesMeshes
+                        {
+                            meshPieceE = boardPrefabs.InstantiateChessMesh(pieceC.isWhite, pieceC.chessType, ecb)
+                        };
+
+                        pieceMeshE = meshes[i].meshPieceE;
+                    }
+                }
+                else
+                {
+                    var boardPrefabs = SystemAPI.GetSingleton<ChessBoardPersistentC>();
+
+                    meshes[i] = new ChessBoardAllPiecesMeshes
+                    {
+                        meshPieceE = boardPrefabs.InstantiateChessMesh(pieceC.isWhite, pieceC.chessType, ecb)
+                    };
+                    pieceMeshE = meshes[i].meshPieceE;
+                }
+
+                var position = SystemAPI.GetComponent<LocalTransform>(snapshot.pieces[i].socketC.socketE).Position;
+                ecb.SetComponent<LocalTransform>(pieceMeshE, LocalTransform.FromPosition(position));
+            }
+        }
     }
 
     protected override void OnUpdate()
@@ -119,6 +253,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         RecalculateBoard();
     }
 
+
     private void RecalculateBoard()
     {
         ChessBoardInstanceAspect board = GetBoard();
@@ -129,45 +264,57 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         var allPiecesSteps =
             new NativeList<NativeList<ChessPiecePossibleSteps>>(Allocator.Temp);
-
-        for (int i = 0; i < currentPlayerPiecesIds.Length; i++)
+        int piecesLen = currentPlayerPiecesIds.Length;
+        for (int i = 0; i < piecesLen; i++)
         {
+            board = GetBoard();
+            currentPlayerPiecesIds = board.GetCurrentPlayerPiecesIds();
             var pieceId = currentPlayerPiecesIds[i];
             var pieceE = board.GetPieceDataById(pieceId);
             var steps = new NativeList<ChessPiecePossibleSteps>(Allocator.Temp);
-            if (SystemAPI.HasBuffer<ChessPiecePossibleSteps>(pieceE))
+            var pieceC = SystemAPI.GetComponent<ChessPieceC>(pieceE);
+
+            if (pieceC.isNotActive)
             {
-                var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE).ToNativeArray(Allocator.Temp);
-                var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceE);
+                allPiecesSteps.Add(steps);
+                continue;
+            }
 
-                foreach (var item1 in stepsBefore)
+            var stepsBefore = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE).ToNativeArray(Allocator.Temp);
+            var socketC = SystemAPI.GetComponent<ChessSocketC>(pieceE);
+
+            foreach (var item1 in stepsBefore)
+            {
+                if (item1.is—astling || item1.isTakeOfThePass)
                 {
-                    if (item1.is—astling || item1.isTakeOfThePass)
-                    {
-                        steps.Add(item1);
-                        continue;
-                    }
-
-                    MovePieceFromToSocketTemp(socketC.socketE, item1.defaultMoveTO.socketE);
-                    RecalculatePossibleStepsForBoard(board);
-
-                    bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
-
-                    if (!isKingUnderAttack && !IsGameFinished())
-                    {
-                        steps.Add(item1);
-                    }
-
-                    ResetPrevMoveData();
-                    RecalculatePossibleStepsForBoard(board);
+                    steps.Add(item1);
+                    continue;
                 }
+
+                var ecb = new EntityCommandBuffer(Allocator.Temp);
+                m_TempSnapshot = CalculateSnapshot(m_TempSnapshot);
+                MovePieceFromToSocketTemp(socketC.socketE, item1.defaultMoveTO.socketE);
+                RecalculatePossibleStepsForBoard();
+
+                bool isKingUnderAttack = IsKingUnderAttack(king, out _, out _);
+
+                if (!isKingUnderAttack && !IsGameFinished())
+                {
+                    steps.Add(item1);
+                }
+
+                ReturnBoardToSnapshot(m_TempSnapshot, false, ecb);
+                RecalculatePossibleStepsForBoard();
+
+                ecb.Playback(EntityManager);
             }
 
             allPiecesSteps.Add(steps);
         }
 
-        RecalculatePossibleStepsForBoard(board);
-
+        RecalculatePossibleStepsForBoard();
+        board = GetBoard();
+        currentPlayerPiecesIds = board.GetCurrentPlayerPiecesIds();
         for (int i = 0; i < currentPlayerPiecesIds.Length; i++)
         {
             var pieceId = currentPlayerPiecesIds[i];
@@ -186,9 +333,9 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         if (IsGameFinished())
         {
+            Debug.Log($"[Server] game ended");
             board = GetBoard();
             board.instanceC.ValueRW.blockInput = true;
-
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -200,6 +347,8 @@ public partial class PlayerTurnServerSystem : SystemBase
                 isWhiteWin = !isWhiteStep,
                 winReason = WinReason.Win
             });
+
+            ecb.Playback(EntityManager);
         }
         else
         {
@@ -448,9 +597,6 @@ public partial class PlayerTurnServerSystem : SystemBase
             var pieceE = board.GetPieceDataById(piece);
             var pieceData = SystemAPI.GetComponent<ChessPieceC>(pieceE);
 
-            if (pieceData.isNotActive == true)
-                continue;
-
             var buffer = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceE);
 
             if (buffer.Length > 0)
@@ -538,10 +684,17 @@ public partial class PlayerTurnServerSystem : SystemBase
     {
         return SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
     }
+
     ChessBoardInstanceAspect GetBoard()
     {
         var boardE = SystemAPI.GetSingletonEntity<ChessBoardInstanceT>();
         return SystemAPI.GetAspect<ChessBoardInstanceAspect>(boardE);
+    }
+
+    ChessBoardPersistentAspect GetBoardPersistent()
+    {
+        var boardE = SystemAPI.GetSingletonEntity<ChessBoardPersistentC>();
+        return SystemAPI.GetAspect<ChessBoardPersistentAspect>(boardE);
     }
 
     void RecalculatePossibleStepsForBoard()
@@ -549,18 +702,6 @@ public partial class PlayerTurnServerSystem : SystemBase
         var board = GetBoard();
 
         RecalculatePossibleStepsForBoard(board);
-    }
-
-    void RecalculatePossibleStepsForOponent(ChessBoardInstanceAspect board)
-    {
-        if (board.IsWhiteStep())
-        {
-            RecalculatePossibleStepsForBlack(board);
-        }
-        else
-        {
-            RecalculatePossibleStepsForWhite(board);
-        }
     }
 
     void RecalculatePossibleStepsForBoard(ChessBoardInstanceAspect board)
@@ -641,26 +782,7 @@ public partial class PlayerTurnServerSystem : SystemBase
         return result;
     }
 
-    public struct PrevMoveData
-    {
-        public Entity from;
-        public Entity to;
-
-        public bool isValid;
-
-        public ChessSocketPieceIdC pieceLinkFrom;
-        public ChessPieceC pieceDataFrom;
-        public ChessSocketC socketFrom;
-
-        public ChessSocketPieceIdC pieceLinkTo;
-        public ChessPieceC pieceDataTo;
-        public ChessSocketC socketTo;
-
-        public float3 fromPos;
-        public float3 toPos;
-    }
-
-    private bool MovePieceToSocketData(Entity fromSocket, Entity toSocket, out PrevMoveData saveData)
+    private bool MovePieceToSocketData(Entity fromSocket, Entity toSocket, out PrevMove saveData)
     {
         var pieceLinkFrom = SystemAPI.GetComponent<ChessSocketPieceIdC>(fromSocket);
         var pieceLinkTo = SystemAPI.GetComponent<ChessSocketPieceIdC>(toSocket);
@@ -672,26 +794,16 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         var pieceDataToE = board.GetPieceDataById(pieceLinkTo.pieceId);
 
-        var pieceDataFrom = SystemAPI.GetComponent<ChessPieceC>(pieceDataFromE);
-
-        saveData = new PrevMoveData
+        saveData = new PrevMove
         {
-            isValid = true,
             from = fromSocket,
             to = toSocket,
-            pieceDataFrom = pieceDataFrom,
-            pieceLinkTo = pieceLinkTo,
-            pieceLinkFrom = pieceLinkFrom,
-            socketFrom = SystemAPI.GetComponent<ChessSocketC>(pieceDataFromE)
         };
 
         if (SystemAPI.HasComponent<ChessPieceC>(pieceDataToE))
         {
             var pieceDataTo = SystemAPI.GetComponentRW<ChessPieceC>(pieceDataToE);
-
-            saveData.pieceDataTo = pieceDataTo.ValueRO;
             pieceDataTo.ValueRW.isNotActive = true;
-            saveData.socketTo = SystemAPI.GetComponent<ChessSocketC>(pieceDataToE);
         }
 
         SystemAPI.SetComponent<ChessSocketPieceIdC>(fromSocket, new ChessSocketPieceIdC
@@ -701,50 +813,17 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         SystemAPI.SetComponent<ChessSocketPieceIdC>(toSocket, pieceLinkFrom);
 
-        SystemAPI.SetComponent<ChessSocketC>(pieceDataFromE, SystemAPI.GetComponent<ChessSocketC>(toSocket));
+        var socketData = SystemAPI.GetComponent<ChessSocketC>(toSocket);
+        SystemAPI.SetComponent<ChessSocketC>(pieceDataFromE, socketData);
         var data = SystemAPI.GetComponentRW<ChessPieceC>(pieceDataFromE);
         data.ValueRW.isMovedOnce = true;
         data.ValueRW.numberOfMoves += 1;
 
         var ltw = SystemAPI.GetComponentRW<LocalTransform>(pieceMeshFromE);
-
-        saveData.fromPos = ltw.ValueRW.Position;
-        saveData.toPos = SystemAPI.GetComponent<LocalTransform>(toSocket).Position;
-
-        ltw.ValueRW.Position = saveData.toPos;
+        ltw.ValueRW.Position = SystemAPI.GetComponent<LocalTransform>(toSocket).Position;
         //Debug.Log($"move from {prevMoveData.fromPos} to {prevMoveData.toPos}");
 
         return true;
-    }
-
-    private void ResetPrevMoveData()
-    {
-        Entity fromSocket = prevMoveDataTemp.from;
-        Entity toSocket = prevMoveDataTemp.to;
-
-        var board = GetBoard();
-
-        var pieceMeshFromE = board.GetPieceMeshById(prevMoveDataTemp.pieceLinkFrom.pieceId);
-        var pieceDataFromE = board.GetPieceDataById(prevMoveDataTemp.pieceLinkFrom.pieceId);
-
-        var pieceDataToE = board.GetPieceDataById(prevMoveDataTemp.pieceLinkTo.pieceId);
-        var pieceMeshToE = board.GetPieceDataById(prevMoveDataTemp.pieceLinkTo.pieceId);
-
-        SystemAPI.SetComponent<ChessSocketPieceIdC>(fromSocket, prevMoveDataTemp.pieceLinkFrom);
-        SystemAPI.SetComponent<ChessSocketPieceIdC>(toSocket, prevMoveDataTemp.pieceLinkTo);
-
-        SystemAPI.SetComponent<ChessPieceC>(pieceDataFromE, prevMoveDataTemp.pieceDataFrom);
-        SystemAPI.SetComponent<LocalTransform>(pieceMeshFromE, LocalTransform.FromPosition(prevMoveDataTemp.fromPos));
-        SystemAPI.SetComponent<ChessSocketC>(pieceDataFromE, prevMoveDataTemp.socketFrom);
-
-        if (SystemAPI.HasComponent<ChessPieceC>(pieceDataToE))
-        {
-            SystemAPI.SetComponent<ChessPieceC>(pieceDataToE, prevMoveDataTemp.pieceDataTo);
-            SystemAPI.SetComponent<LocalTransform>(pieceMeshToE, LocalTransform.FromPosition(prevMoveDataTemp.toPos));
-            SystemAPI.SetComponent<ChessSocketC>(pieceDataToE, prevMoveDataTemp.socketTo);
-        }
-
-        //Debug.Log($"reset from {prevMoveData.fromPos} to {prevMoveData.toPos}");
     }
 
     bool IsCorrectSocketToMove(Entity moveFrom, Entity moveTo)
@@ -998,7 +1077,6 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         var socketTrans = SystemAPI.GetComponent<LocalTransform>(moveToSocket);
 
-        ecb.AddComponent<ChessSocketC>(newMeshInstance, SystemAPI.GetComponent<ChessSocketC>(moveToSocket));
         ecb.SetComponent<LocalTransform>(newMeshInstance, socketTrans);
 
         ecb.AddComponent<ChessSocketPieceIdC>(moveToSocket, new ChessSocketPieceIdC
@@ -1094,6 +1172,11 @@ public partial class PlayerTurnServerSystem : SystemBase
 
         var turnPositions = SystemAPI.GetBuffer<ChessPiecePossibleSteps>(pieceToMoveE);
         turnPositions.Clear();
+
+        if (pieceDataToMove.ValueRO.isNotActive)
+        {
+            return;
+        }
 
         if (!isKing && attackes >= 2 || !isKing && isAttackedByKnight)
             return;
