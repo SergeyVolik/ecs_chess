@@ -1,4 +1,5 @@
 using Cinemachine;
+using Cinemachine.Utility;
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -26,7 +27,11 @@ public class CameraController : MonoBehaviour
     public Vector3 aimOffset;
     public float aimRotationX;
 
-    private bool m_IsWhite = true;
+    private float rotY;
+    private float rotX;
+    private Vector3 m_TouchStart;
+    private bool m_IsMoving;
+    private bool m_IsRotation;
 
     private void Awake()
     {
@@ -43,13 +48,14 @@ public class CameraController : MonoBehaviour
 
     public void SetupPlayerCamera(bool isWhite)
     {
-        m_IsWhite = isWhite;
         var currentAimOffset = aimOffset;
         if (isWhite)
             currentAimOffset.z *= -1;
         m_CameraTarget.position = currentAimOffset;
 
-        m_CameraTarget.rotation = Quaternion.Euler(aimRotationX, isWhite ? 0 : 180, 0);
+        rotX = aimRotationX;
+        rotY = isWhite ? 0 : 180;
+        UpdateRotation();
         UpdateCameraDistance();
         UpdateBodyOffset();
     }
@@ -76,6 +82,7 @@ public class CameraController : MonoBehaviour
     private void Update()
     {
         ExecuteZoom();
+
         ExecuteMove();
         ExecuteRotate();
 
@@ -84,25 +91,72 @@ public class CameraController : MonoBehaviour
 
     private void ExecuteRotate()
     {
-        if (Input.GetMouseButton(1))
+        if (Input.GetMouseButtonDown(1))
+        {
+            m_IsRotation = true;
+            m_IsMoving = false;
+        }
+
+        if (Input.GetMouseButton(1) && m_IsRotation)
         {
             var x = Input.GetAxis("Mouse X");
             var y = Input.GetAxis("Mouse Y");
 
-            m_CameraTarget.Rotate(Vector3.right, y * rotateSensitivity);
-            m_CameraTarget.Rotate(Vector3.up, x * rotateSensitivity, Space.World);
+            rotY += x * rotateSensitivity;
+            rotX -= y * rotateSensitivity;
+
+            //rotY = Mathf.Clamp(rotY, -90f, 90f);
+            rotX = Mathf.Clamp(rotX, 0f, 90f);
+
+            UpdateRotation();
         }
+
+        if (Input.GetMouseButtonUp(1))
+        {
+            m_IsRotation = false;
+        }
+    }
+
+    private void UpdateRotation()
+    {
+        m_CameraTarget.eulerAngles = new Vector3(rotX, rotY, 0);
     }
 
     private void ExecuteMove()
     {
-        if (Input.GetKey(KeyCode.Mouse2))
+        if (Input.GetKeyDown(KeyCode.Mouse2))
         {
+            m_TouchStart = GetWorldPosition(0);
+            m_IsMoving = true;
+            m_IsRotation = false;
+        }
+
+        if (Input.GetKey(KeyCode.Mouse2) && m_IsMoving)
+        {
+
+            var moveDelta = m_TouchStart - GetWorldPosition(0);
+
             var x = Input.GetAxis("Mouse X");
             var y = Input.GetAxis("Mouse Y");
 
-            m_CameraTarget.position += new Vector3(x, 0, y) * moveSensitivity;
+            var vector = Vector3.ProjectOnPlane(-m_Camera.transform.forward, Vector3.up).normalized * y;
+            var vector2 = Vector3.ProjectOnPlane(-m_Camera.transform.right, Vector3.up).normalized * x;
+            var delta = GetWorldPosition(0);
+            m_CameraTarget.position += moveDelta;
         }
+
+        if (Input.GetKeyUp(KeyCode.Mouse2))
+        {
+            m_IsMoving = false;
+        }
+    }
+    private Vector3 GetWorldPosition(float z)
+    {
+        Ray mousePos = m_Camera.ScreenPointToRay(Input.mousePosition);
+        Plane ground = new Plane(Vector3.up, new Vector3(0, 0, z));
+        float distance;
+        ground.Raycast(mousePos, out distance);
+        return mousePos.GetPoint(distance);
     }
 
     private void ExecuteZoom()
